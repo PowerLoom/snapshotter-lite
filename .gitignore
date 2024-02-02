@@ -1,0 +1,14 @@
+.env
+.python-version
+__pycache__/
+.idea/
+.DS_Store
+screenlog*
+temp/*
+uniswapTokenData
+**/*projects.json
+**/*aggregator.json
+config/*settings.json
+**/*.backup
+.vscode/*
+src
