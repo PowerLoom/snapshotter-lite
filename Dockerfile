@@ -7,13 +7,13 @@ RUN npm install pm2 -g
 COPY poetry.lock pyproject.toml ./
 
 # Install the Python dependencies
-RUN poetry install --no-dev
+RUN poetry install --no-dev --no-root
 
 # Copy the rest of the application's files
 COPY . .
 
 # Make the shell scripts executable
-RUN chmod +x ./snapshotter_autofill.sh ./init_processes.sh
+RUN chmod +x ./snapshotter_autofill.sh ./init_docker.sh
 
 # Expose the port that the application will listen on
 EXPOSE 8002

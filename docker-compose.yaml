@@ -1,8 +1,8 @@
 version: '3.9'
 
 services:
-  pooler:
-    image: ghcr.io/powerloom/snapshotter-lite:latest
+  snapshotter-lite:
+    image: ghcr.io/powerloom/snapshotter-lite:main
     links:
       - "ipfs"
     expose:
@@ -10,7 +10,6 @@ services:
     ports:
       - 8002:8002
     volumes:
-      - local_cache:/home/ubuntu/local_cache/
       - ./logs:/logs
     environment:
       - SIGNER_ACCOUNT_ADDRESS=$SIGNER_ACCOUNT_ADDRESS

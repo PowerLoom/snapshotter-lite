@@ -1,4 +1,8 @@
 #!/bin/bash
+
+source .env
+
+
 echo 'populating setting from environment values...';
 
 if [ -z "$SOURCE_RPC_URL" ]; then

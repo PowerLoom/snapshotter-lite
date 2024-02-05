@@ -8,7 +8,6 @@ services:
     ports:
       - 8002:8002
     volumes:
-      - local_cache:/home/ubuntu/local_cache/
       - ./snapshotter:/snapshotter
       - ./config:/config
       - ./logs:/logs
@@ -53,5 +52,3 @@ services:
     ports:
       - 5001:5001
     restart: on-failure
-volumes:
-  local_cache:
