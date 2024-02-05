@@ -203,7 +203,7 @@ However, it is recommended to use the Docker image as it is the easiest and most
    ```
    If you're a developer and want to play around with the code, instead of running `build.sh`, you can run the following command to start the snapshotter lite node:
    ```bash
-   ./build-dev.sh`
+   ./build-dev.sh
    ```
 
 5. When prompted, enter `$SOURCE_RPC_URL`, `SIGNER_ACCOUNT_ADDRESS`, `SIGNER_ACCOUNT_PRIVATE_KEY` (only required for the first time), this will create a `.env` file in the root directory of the project.
@@ -249,7 +249,7 @@ If you want to run the Snapshotter Lite Node without Docker, you need to make su
 ## Monitoring and Debugging
 
 ### Monitoring
-<!-- TODO - Enter Node dashboard screenshots and information here -->
+**TODO** - Enter Node dashboard screenshots and information here
 
 ### Debugging
 Usually the easiest way to fix node related issues is to restart the node. If you're facing issues with the node, you can try going through the logs present in the `logs` directory. If you're unable to find the issue, you can reach out to us on [Discord](https://powerloom.io/discord) and we will be happy to help you out.
