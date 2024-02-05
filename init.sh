@@ -47,6 +47,12 @@ if [[ $python3_version != "Python 3.10.13" ]]; then
     exit 1
 fi
 
+# check git
+if ! [ -x "$(command -v git)" ]; then
+    echo 'Error: git is not installed.' >&2
+    exit 1
+fi
+
 # install python dependencies
 pip3 install -r requirements.txt
 python3 -m snapshotter.gunicorn_core_launcher & python3 -m snapshotter.system_event_detector &
