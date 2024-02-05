@@ -1,0 +1,57 @@
+version: '3.9'
+
+services:
+  pooler:
+    image: ghcr.io/powerloom/snapshotter-lite:latest
+    links:
+      - "ipfs"
+    expose:
+      - 8002
+    ports:
+      - 8002:8002
+    volumes:
+      - local_cache:/home/ubuntu/local_cache/
+      - ./logs:/logs
+    environment:
+      - SIGNER_ACCOUNT_ADDRESS=$SIGNER_ACCOUNT_ADDRESS
+      - SIGNER_ACCOUNT_PRIVATE_KEY=$SIGNER_ACCOUNT_PRIVATE_KEY
+      - SOURCE_RPC_URL=$SOURCE_RPC_URL
+      - PROST_RPC_URL=$PROST_RPC_URL
+      - IPFS_URL=$IPFS_URL
+      - IPFS_API_KEY=$IPFS_API_KEY
+      - IPFS_API_SECRET=$IPFS_API_SECRET
+      - PROTOCOL_STATE_CONTRACT=$PROTOCOL_STATE_CONTRACT
+      - SLACK_REPORTING_URL=$SLACK_REPORTING_URL
+      - POWERLOOM_REPORTING_URL=$POWERLOOM_REPORTING_URL
+      - WEB3_STORAGE_TOKEN=$WEB3_STORAGE_TOKEN
+      - NAMESPACE=$NAMESPACE
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8002/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    command:
+      bash -c "sh snapshotter_autofill.sh && sh init_docker.sh"
+  ipfs:
+    image: ipfs/kubo:release
+    profiles: ["ipfs"]
+    environment:
+      - IPFS_PROFILE=server
+    entrypoint: >
+      /bin/sh -c "
+      echo 'adding cronjob';
+      mkdir -p /var/spool/cron/crontabs;
+      croncmd=\"cd /data/ipfs && find . -type f -mtime +7 -name \\"*.data\\" | xargs rm -f 2>&1\";
+      cronjob=\"0 * * * * $$croncmd\";
+      ( crontab -l | grep -v -F \"$$croncmd\" ; echo \"$$cronjob\" ) | crontab -;
+      echo 'starting ipfs';
+      /sbin/tini -- /usr/local/bin/start_ipfs daemon --migrate=true --agent-version-suffix=docker;
+      "
+    #command:
+    #   ["daemon", "--migrate=true", "--agent-version-suffix=docker"]
+    expose:
+      - 5001
+    ports:
+      - 5001:5001
+    restart: on-failure
