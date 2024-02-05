@@ -3,8 +3,6 @@ version: '3.9'
 services:
   snapshotter-lite:
     image: ghcr.io/powerloom/snapshotter-lite:main
-    links:
-      - "ipfs"
     expose:
       - 8002
     ports:
