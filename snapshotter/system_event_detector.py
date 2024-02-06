@@ -69,14 +69,14 @@ class EventDetectorProcess(multiprocessing.Process):
         # event DayStartedEvent(uint256 dayId, uint256 timestamp);
         # event DailyTaskCompletedEvent(address snapshotterAddress, uint256 dayId, uint256 timestamp);
 
-        EVENTS_ABI = {
+        self._EVENTS_ABI = {
             'EpochReleased': self.contract.events.EpochReleased._get_event_abi(),
             'allSnapshottersUpdated': self.contract.events.allSnapshottersUpdated._get_event_abi(),
             'DayStartedEvent': self.contract.events.DayStartedEvent._get_event_abi(),
             'DailyTaskCompletedEvent': self.contract.events.DailyTaskCompletedEvent._get_event_abi(),
         }
 
-        EVENT_SIGS = {
+        self._EVENT_SIGS = {
             'EpochReleased': 'EpochReleased(uint256,uint256,uint256,uint256)',
             'allSnapshottersUpdated': 'allSnapshottersUpdated(address,bool)',
             'DayStartedEvent': 'DayStartedEvent(uint256,uint256)',
@@ -85,15 +85,18 @@ class EventDetectorProcess(multiprocessing.Process):
         }
 
         self.event_sig, self.event_abi = get_event_sig_and_abi(
-            EVENT_SIGS,
-            EVENTS_ABI,
+            self._EVENT_SIGS,
+            self._EVENTS_ABI,
         )
 
         self.processor_distributor = ProcessorDistributor()
+        self._query_epochs = True
+        self._next_epoch_release_query_resume = 0 # the timestamp after which the epoch released event fetches are resumed
         self._initialized = False
 
     async def init(self):
         await self.processor_distributor.init()
+        self._epochs_in_a_day = 86400 // (self.processor_distributor._epoch_size * self.processor_distributor._source_chain_block_time)
 
     async def get_events(self, from_block: int, to_block: int):
         """
@@ -112,7 +115,12 @@ class EventDetectorProcess(multiprocessing.Process):
         if not self._initialized:
             await self.init()
             self._initialized = True
-
+        if not self._query_epochs and int(time.time()) >= self._next_epoch_release_query_resume:
+            self._query_epochs = True
+            self._logger.info('Resuming epoch release event fetches since resumption timestamp was {} and current time is {}', self._next_epoch_release_query_resume, int(time.time())) 
+            self._next_epoch_release_query_resume = 0
+            self._EVENT_SIGS['EpochReleased'] = 'EpochReleased(uint256,uint256,uint256,uint256)'
+            self._EVENTS_ABI['EpochReleased'] = self.contract.events.EpochReleased._get_event_abi()
         events_log = await self.rpc_helper.get_events_logs(
             **{
                 'contract_address': self.contract_address,
@@ -122,7 +130,7 @@ class EventDetectorProcess(multiprocessing.Process):
                 'event_abi': self.event_abi,
             },
         )
-
+            
         events = []
         latest_epoch_id = - 1
         for log in events_log:
@@ -134,6 +142,19 @@ class EventDetectorProcess(multiprocessing.Process):
                     timestamp=log.args.timestamp,
                 )
                 latest_epoch_id = max(latest_epoch_id, log.args.epochId)
+                cur_slot = (log.args.epochId % self._epochs_in_a_day) // (self._epochs_in_a_day // self.processor_distributor._slots_per_day) + 1
+                if cur_slot > self.processor_distributor._snapshotter_slot:
+                    self._query_epochs = False
+                    self._query_epoch_last_disable = log.args.epochId
+                    # 10% buffer - duration of a slot
+                    self._next_epoch_release_query_resume = log.args.timestamp + \
+                        86400 - 864 - 60 * self.processor_distributor._source_chain_block_time * self.processor_distributor._epoch_size
+                    self._EVENT_SIGS.pop('EpochReleased')
+                    self._EVENTS_ABI.pop('EpochReleased')
+                    self.event_sig, self.event_abi = get_event_sig_and_abi(
+                        self._EVENT_SIGS,
+                        self._EVENTS_ABI,
+                    )
                 events.append((log.event, event))
 
             elif log.event == 'allSnapshottersUpdated':
