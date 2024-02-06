@@ -62,21 +62,6 @@ fi
 cp config/projects.example.json config/projects.json
 cp config/settings.example.json config/settings.json
 
-# config hash
-cd 'config';
-# run git rev-parse HEAD
-config_hash=$(git rev-parse HEAD);
-
-cd ..
-
-cd 'snapshotter/modules/computes';
-
-compute_hash=$(git rev-parse HEAD);
-
-export namespace_hash="${config_hash}-${compute_hash}";
-echo "Namespace hash: ${namespace_hash}";
-
-cd ../../../;
 
 export namespace="${NAMESPACE:-namespace_hash}"
 export ipfs_url="${IPFS_URL:-}"
