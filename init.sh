@@ -40,10 +40,9 @@ git submodule update --init --recursive
 
 ./snapshotter_autofill.sh || exit 1
 
-# check python3 version == 3.10.13
-python3_version=$(python3 --version)
-if [[ $python3_version != "Python 3.10.13" ]]; then
-    echo "python3 version is not 3.10.13, please install python3.10.13"
+# check python3 is present
+if ! [ -x "$(command -v python3)" ]; then
+    echo 'Error: python3 is not installed.' >&2
     exit 1
 fi
 

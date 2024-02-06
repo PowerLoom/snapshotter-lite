@@ -36,7 +36,6 @@ httpcore==0.17.3
 httpx==0.24.1
 idna==3.4
 -e git+https://github.com/PowerLoom/py-ipfs-client.git@ae98cf45ddc6042009df2ced2b346be922f432ce#egg=ifps_client
-importlib
 ipfs-cid==1.0.0
 jsonschema==4.20.0
 jsonschema-specifications==2023.12.1
