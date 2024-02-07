@@ -10,6 +10,7 @@ from signal import SIGTERM
 
 from eth_utils.address import to_checksum_address
 from web3 import Web3
+from snapshotter.utils.callback_helpers import misc_notification_callback_result_handler, sync_notification_callback_result_handler
 
 from snapshotter.processor_distributor import ProcessorDistributor
 from snapshotter.settings.config import settings
@@ -152,7 +153,7 @@ class EventDetectorProcess(multiprocessing.Process):
 
          
 
-        self._logger.info('Events: {}', events)
+        self._logger.info('Events Detected: {}', events)
         return events
 
     def _generic_exit_handler(self, signum, sigframe):
@@ -183,7 +184,6 @@ class EventDetectorProcess(multiprocessing.Process):
             await self.rpc_helper.init()
             current_block = await self.rpc_helper.get_current_block()
             self._logger.info('Current block: {}', current_block)
-            print(current_block, 'current block')
 
         except Exception as e:
             self._logger.opt(exception=True).error(
@@ -246,17 +246,23 @@ class EventDetectorProcess(multiprocessing.Process):
                     settings.rpc.polling_interval,
                 )
                 await asyncio.sleep(settings.rpc.polling_interval)
-                
-
         for event_type, event in events:
             self._logger.info(
                 'Processing event: {}', event,
             )
-            asyncio.ensure_future(
-                self.processor_distributor.process_event(
-                    event_type, event,
-                ),
+            epoch_id, status = await self.processor_distributor.process_event(
+                event_type, event,
             )
+            if status:
+                self._logger.info(
+                    '✅ Event processed successfully: {}. We gtg.', event,
+                )
+            else:
+                self._logger.error(
+                    '❌ Event processing failed: {}. We not gtg.', event,
+                )
+            raise KeyboardInterrupt
+
 
         self._last_processed_block = current_block
 
@@ -268,6 +274,19 @@ class EventDetectorProcess(multiprocessing.Process):
             'Sleeping for {} seconds...',
             settings.rpc.polling_interval,
         )
+    def handle_callback(self, f):
+        try:
+            r = f.result()
+            
+        except Exception as e:
+            if settings.logs.trace_enabled:
+                logger.opt(exception=True).error(
+                'Exception while sending callback or notification: {}', e,)
+                
+            else:
+                logger.error('Exception while sending callback or notification: {}', e)
+        else:
+            logger.debug('Callback or notification result:{}', r)
 
     def run(self):
         """
@@ -287,17 +306,16 @@ class EventDetectorProcess(multiprocessing.Process):
             signal.signal(signame, self._generic_exit_handler)
 
         self.ev_loop = asyncio.get_event_loop()
-
         self.ev_loop.run_until_complete(
             self._detect_events(),
         )
+
         # Define ANSI escape code for green color
         green_color = "\033[92m"
         # Reset color
         reset_color = "\033[0m"
         # Unicode character for check mark
         check_mark = "\u2713"
-
         # Print the green check mark
         self._logger.info(f"{green_color}{check_mark}: 'All Runs successful'{reset_color}")
 

@@ -135,8 +135,6 @@ class GenericProcessor(ABC):
         self,
         msg_obj: SnapshotProcessMessage,
         rpc_helper: RpcHelper,
-        anchor_rpc_helper: RpcHelper,
         ipfs_reader: AsyncIPFSClient,
-        protocol_state_contract,
     ):
         pass

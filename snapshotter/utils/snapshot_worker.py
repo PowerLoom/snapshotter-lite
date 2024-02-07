@@ -75,13 +75,10 @@ class SnapshotAsyncWorker(GenericAsyncWorker):
         """
         try:
             task_processor = self._project_calculation_mapping[task_type]
-
             snapshots = await task_processor.compute(
                 msg_obj=msg_obj,
                 rpc_helper=self._rpc_helper,
-                anchor_rpc_helper=self._anchor_rpc_helper,
                 ipfs_reader=self._ipfs_reader_client,
-                protocol_state_contract=self.protocol_state_contract,
             )
 
             if not snapshots:
@@ -164,16 +161,13 @@ class SnapshotAsyncWorker(GenericAsyncWorker):
             return
 
         if not self._submission_window:
-            self._submission_window = await get_snapshot_submision_window(
-                rpc_helper=self._anchor_rpc_helper,
-                state_contract_obj=self.protocol_state_contract,
-            )
+            self._submission_window = 50
 
         self.logger.debug(
             'Got epoch to process for {}: {}',
             task_type, msg_obj,
         )
-
+        
         await self._process(msg_obj=msg_obj, task_type=task_type, commit_payload=commit_payload)
 
     async def _init_project_calculation_mapping(self):

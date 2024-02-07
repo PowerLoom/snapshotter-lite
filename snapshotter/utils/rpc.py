@@ -296,6 +296,7 @@ class RpcHelper(object):
         async def f(node_idx):
             try:
                 node = self._nodes[node_idx]
+
                 rpc_url = node.get('rpc_url')
 
                 params: TxParams = {'gas': Wei(0), 'gasPrice': Wei(0)}
@@ -304,7 +305,6 @@ class RpcHelper(object):
                     raise ValueError(
                         f'Missing address for batch_call in `{[contract_function.fn_name]}`',
                     )
-
                 output_type = [
                     output['type'] for output in contract_function.abi['outputs']
                 ]
@@ -355,7 +355,6 @@ class RpcHelper(object):
                     err=lambda: str(exc),
                 )
                 raise exc
-
         return await f(node_idx=0)
 
     async def get_transaction_receipt(self, tx_hash):

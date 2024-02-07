@@ -12,6 +12,7 @@ from web3 import Web3
 
 from snapshotter.settings.config import projects_config
 from snapshotter.settings.config import settings
+from snapshotter.utils.callback_helpers import misc_notification_callback_result_handler
 from snapshotter.utils.data_utils import get_snapshot_submision_window
 from snapshotter.utils.data_utils import get_source_chain_epoch_size
 from snapshotter.utils.data_utils import get_source_chain_id
@@ -209,13 +210,27 @@ class ProcessorDistributor:
             epochId=message.epochId,
             day=self._current_day,
         )
+       
         for project_type, _ in self._project_type_config_mapping.items():
-            # release for snapshotting
-            asyncio.ensure_future(
-                self._distribute_callbacks_snapshotting(
-                    project_type, epoch,
-                ),
+            process_unit = SnapshotProcessMessage(
+                begin=epoch.begin,
+                end=epoch.end,
+                epochId=epoch.epochId,
+                day=epoch.day,
             )
+            commit_payload = False
+        
+            try:
+                await self.snapshot_worker.process_task(process_unit, project_type, commit_payload)
+            except Exception as e:
+                self._logger.opt(exception=True).error(
+                    'Error processing snapshot for epoch: {}, Error: {}',
+                    epoch.epochId,
+                    e,
+                )
+                return message.epochId, False
+            else:
+                return message.epochId, True
 
     async def _distribute_callbacks_snapshotting(self, project_type: str, epoch: EpochBase):
         """
@@ -228,19 +243,19 @@ class ProcessorDistributor:
         Returns:
             None
         """
-
         process_unit = SnapshotProcessMessage(
             begin=epoch.begin,
             end=epoch.end,
             epochId=epoch.epochId,
             day=epoch.day,
         )
-
         commit_payload = self._is_allowed_for_epoch(epoch)
-
+    
         asyncio.ensure_future(
             self.snapshot_worker.process_task(process_unit, project_type, commit_payload),
         )
+        
+        
 
     def _is_allowed_for_epoch(self, epoch: EpochBase):
         """
@@ -285,9 +300,9 @@ class ProcessorDistributor:
             None
         """
         if type_ == 'EpochReleased':
-
             if self._snapshotter_enabled:
-                await self._epoch_release_processor(event)
+               
+                return await self._epoch_release_processor(event)
             else:
                 self._logger.info('System is not active, ignoring released Epoch')
 
