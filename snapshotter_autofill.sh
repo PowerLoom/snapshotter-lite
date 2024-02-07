@@ -15,16 +15,6 @@ if [ -z "$SIGNER_ACCOUNT_ADDRESS" ]; then
     exit 1;
 fi
 
-if [ -z "$PROST_RPC_URL" ]; then
-    echo "PROST_RPC_URL not found, please set this in your .env!";
-    exit 1;
-fi
-
-if [ -z "$PROTOCOL_STATE_CONTRACT" ]; then
-    echo "PROTOCOL_STATE_CONTRACT not found, please set this in your .env!";
-    exit 1;
-fi
-
 if [ -z "$SIGNER_ACCOUNT_PRIVATE_KEY" ]; then
     echo "SIGNER_ACCOUNT_PRIVATE_KEY not found, please set this in your .env!";
     exit 1;
@@ -74,7 +64,7 @@ export slack_reporting_url="${SLACK_REPORTING_URL:-}"
 export powerloom_reporting_url="${POWERLOOM_REPORTING_URL:-}"
 
 
-
+\
 # If IPFS_URL is empty, clear IPFS API key and secret
 if [ -z "$IPFS_URL" ]; then
     ipfs_api_key=""

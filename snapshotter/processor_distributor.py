@@ -1,5 +1,4 @@
 import asyncio
-import json
 from collections import defaultdict
 from typing import Union
 
@@ -8,16 +7,10 @@ from httpx import AsyncClient
 from httpx import AsyncHTTPTransport
 from httpx import Limits
 from httpx import Timeout
-from web3 import Web3
 
 from snapshotter.settings.config import projects_config
 from snapshotter.settings.config import settings
-from snapshotter.utils.callback_helpers import misc_notification_callback_result_handler
-from snapshotter.utils.data_utils import get_snapshot_submision_window
-from snapshotter.utils.data_utils import get_source_chain_epoch_size
-from snapshotter.utils.data_utils import get_source_chain_id
 from snapshotter.utils.default_logger import logger
-from snapshotter.utils.file_utils import read_json_file
 from snapshotter.utils.models.data_models import DailyTaskCompletedEvent
 from snapshotter.utils.models.data_models import DayStartedEvent
 from snapshotter.utils.models.data_models import EpochReleasedEvent
@@ -96,84 +89,13 @@ class ProcessorDistributor:
             self._logger = logger.bind(
                 module='ProcessDistributor',
             )
-
-
-
-            try:
-                source_block_time = 120000
-            except Exception as e:
-                self._logger.error(
-                    'Exception in querying protocol state for source chain block time: {}',
-                    e,
-                )
-            else:
-                self._source_chain_block_time = source_block_time / 10 ** 4
-                self._logger.debug('Set source chain block time to {}', self._source_chain_block_time)
-
-            try:
-                epoch_size = 10
-            except Exception as e:
-                self._logger.error(
-                    'Exception in querying protocol state for epoch size: {}',
-                    e,
-                )
-            else:
-                self._epoch_size = epoch_size
-
-            try:
-                slots_per_day = 10
-            except Exception as e:
-                self._logger.error(
-                    'Exception in querying protocol state for slots per day: {}',
-                    e,
-                )
-            else:
-                self._slots_per_day = slots_per_day
-
-            try:
-                self._snapshotter_enabled = True
-
-            except Exception as e:
-                self._logger.error(
-                    'Exception in querying protocol state for snapshotter: {}',
-                    e,
-                )
-                self._snapshotter_enabled = False
-            self._logger.info('Snapshotter enabled: {}', self._snapshotter_enabled)
-
-            try:
-                snapshotter_slot = 1
-                if snapshotter_slot == 0:
-                    self._logger.error('Snapshotter slot is not set, exiting')
-                    exit(0)
-                else:
-                    self._logger.info('Snapshotter slot is set to {}', snapshotter_slot)
-                    self._snapshotter_slot = snapshotter_slot
-            except Exception as e:
-                self._logger.error(
-                    'Exception in querying protocol state for time slot {}',
-                    e,
-                )
-                self._logger.error('Unable to get snapshotter slot, exiting')
-                exit(1)
-
-            self._logger.info('Snapshotter enabled: {}', self._snapshotter_enabled)
-
-            try:
-                self._current_day = 1
-
-                task_completion_status = None
-                if task_completion_status:
-                    self._snapshotter_active = False
-                else:
-                    self._snapshotter_active = True
-            except Exception as e:
-                self._logger.error(
-                    'Exception in querying protocol state for user task status for day {}',
-                    e,
-                )
-                self._snapshotter_active = False
-            self._logger.info('Snapshotter active: {}', self._snapshotter_active)
+            self._source_chain_block_time = 120000
+            self._epoch_size = 10
+            self._slots_per_day = 12
+            self._snapshotter_enabled = True
+            self._snapshotter_slot = 1
+            self._current_day = 1
+            self._snapshotter_active = True
 
             await self._init_httpx_client()
             await self._init_rpc_helper()
@@ -210,7 +132,7 @@ class ProcessorDistributor:
             epochId=message.epochId,
             day=self._current_day,
         )
-       
+
         for project_type, _ in self._project_type_config_mapping.items():
             process_unit = SnapshotProcessMessage(
                 begin=epoch.begin,
@@ -219,7 +141,7 @@ class ProcessorDistributor:
                 day=epoch.day,
             )
             commit_payload = False
-        
+
             try:
                 await self.snapshot_worker.process_task(process_unit, project_type, commit_payload)
             except Exception as e:
@@ -249,13 +171,11 @@ class ProcessorDistributor:
             epochId=epoch.epochId,
             day=epoch.day,
         )
-        commit_payload = self._is_allowed_for_epoch(epoch)
-    
+        commit_payload = False
+
         asyncio.ensure_future(
             self.snapshot_worker.process_task(process_unit, project_type, commit_payload),
         )
-        
-        
 
     def _is_allowed_for_epoch(self, epoch: EpochBase):
         """
@@ -301,7 +221,7 @@ class ProcessorDistributor:
         """
         if type_ == 'EpochReleased':
             if self._snapshotter_enabled:
-               
+
                 return await self._epoch_release_processor(event)
             else:
                 self._logger.info('System is not active, ignoring released Epoch')

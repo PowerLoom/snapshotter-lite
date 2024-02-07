@@ -53,5 +53,5 @@ if ! [ -x "$(command -v git)" ]; then
 fi
 
 # install python dependencies
-pip3 install -r requirements.txt
-python3 -m snapshotter.gunicorn_core_launcher & python3 -m snapshotter.system_event_detector &
+# pip3 install -r requirements.txt
+python3 -m snapshotter.system_event_detector &

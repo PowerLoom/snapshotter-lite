@@ -78,6 +78,9 @@ class SnapshotAsyncWorker(GenericAsyncWorker):
             snapshots = await task_processor.compute(
                 msg_obj=msg_obj,
                 rpc_helper=self._rpc_helper,
+                protocol_state_contract=None,
+                anchor_rpc_helper=None,
+
                 ipfs_reader=self._ipfs_reader_client,
             )
 

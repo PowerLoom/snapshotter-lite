@@ -418,6 +418,8 @@ class RpcHelper(object):
             int: The current block number.
 
         """
+        if not self._initialized:
+            await self.init()
         node = self._nodes[node_idx]
 
         current_block = node['web3_client'].eth.block_number
