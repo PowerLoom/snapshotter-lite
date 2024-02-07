@@ -28,6 +28,7 @@ from snapshotter.settings.config import settings
 from snapshotter.utils.default_logger import logger
 from snapshotter.utils.exceptions import RPCException
 from snapshotter.utils.models.settings_model import RPCConfigBase
+from snapshotter.utils.rpc_cache import LruCacheRpc
 
 
 def get_contract_abi_dict(abi):
@@ -452,6 +453,7 @@ class RpcHelper(object):
         except Exception as e:
             raise e
 
+    @LruCacheRpc(maxsize=1000, args={'rpc_query'})
     async def _make_rpc_jsonrpc_call(self, rpc_query):
         """
         Makes an RPC JSON-RPC call to a node in the pool.
@@ -678,6 +680,7 @@ class RpcHelper(object):
         response_data = await self._make_rpc_jsonrpc_call(rpc_query)
         return response_data
 
+    @LruCacheRpc(maxsize=1000, args={'rpc_query'})
     async def get_events_logs(
         self, contract_address, to_block, from_block, topics, event_abi,
     ):
