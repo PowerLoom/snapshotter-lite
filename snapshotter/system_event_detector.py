@@ -52,18 +52,8 @@ class EventDetectorProcess(multiprocessing.Process):
 
         self._last_processed_block = None
 
-        self.rpc_helper = RpcHelper(rpc_settings=settings.anchor_chain_rpc)
-        self.contract_abi = read_json_file(
-            settings.protocol_state.abi,
-            self._logger,
-        )
-        self.contract_address = settings.protocol_state.address
-        self.contract = self.rpc_helper.get_current_node()['web3_client'].eth.contract(
-            address=Web3.to_checksum_address(
-                self.contract_address,
-            ),
-            abi=self.contract_abi,
-        )
+        self.rpc_helper = RpcHelper(rpc_settings=settings.rpc)
+
 
         # event EpochReleased(uint256 indexed epochId, uint256 begin, uint256 end, uint256 timestamp);
         # event DayStartedEvent(uint256 dayId, uint256 timestamp);
@@ -113,49 +103,30 @@ class EventDetectorProcess(multiprocessing.Process):
             await self.init()
             self._initialized = True
 
-        events_log = await self.rpc_helper.get_events_logs(
-            **{
-                'contract_address': self.contract_address,
-                'to_block': to_block,
-                'from_block': from_block,
-                'topics': [self.event_sig],
-                'event_abi': self.event_abi,
-            },
-        )
 
         events = []
-        latest_epoch_id = - 1
-        for log in events_log:
-            if log.event == 'EpochReleased':
-                event = EpochReleasedEvent(
-                    begin=log.args.begin,
-                    end=log.args.end,
-                    epochId=log.args.epochId,
-                    timestamp=log.args.timestamp,
-                )
-                latest_epoch_id = max(latest_epoch_id, log.args.epochId)
-                events.append((log.event, event))
 
-            elif log.event == 'allSnapshottersUpdated':
-                event = SnapshottersUpdatedEvent(
-                    snapshotterAddress=log.args.snapshotterAddress,
-                    allowed=log.args.allowed,
-                    timestamp=int(time.time()),
+        log = {
+            "args": {
+                "begin": to_block - settings.epoch_length,
+                "end": to_block,
+                "epochId": 1,
+                "timestamp": int(time.time()),
+            },
+            'event': 'EpochReleased' 
+        }
+        
+        event = EpochReleasedEvent(
+                    begin=log['args']['begin'],
+                    end=log['args']['end'],
+                    epochId=log['args']['epochId'],
+                    timestamp=log['args']['timestamp'],
                 )
-                events.append((log.event, event))
-            elif log.event == 'DayStartedEvent':
-                event = DayStartedEvent(
-                    dayId=log.args.dayId,
-                    timestamp=log.args.timestamp,
-                )
-                events.append((log.event, event))
-            elif log.event == 'DailyTaskCompletedEvent':
-                if log.args.snapshotterAddress == to_checksum_address(settings.instance_id):
-                    event = DailyTaskCompletedEvent(
-                        dayId=log.args.dayId,
-                        timestamp=log.args.timestamp,
-                    )
-                    events.append((log.event, event))
+        latest_epoch_id = max(latest_epoch_id, log['args']['epochId'])
+
+        events.append((log['event'], event))
+
+         
 
         self._logger.info('Events: {}', events)
         return events
@@ -183,95 +154,93 @@ class EventDetectorProcess(multiprocessing.Process):
         Continuously detects events by fetching the current block and comparing it to the last processed block.
         If the last processed block is too far behind the current block, it processes the current block.
         """
-        while True:
-            try:
-                current_block = await self.rpc_helper.get_current_block()
-                self._logger.info('Current block: {}', current_block)
+        try:
+            current_block = await self.rpc_helper.get_current_block()
+            self._logger.info('Current block: {}', current_block)
 
+        except Exception as e:
+            self._logger.opt(exception=True).error(
+                (
+                    'Unable to fetch current block, ERROR: {}, '
+                    'sleeping for {} seconds.'
+                ),
+                e,
+                settings.rpc.polling_interval,
+            )
+
+            await asyncio.sleep(settings.rpc.polling_interval)
+            
+
+        if not self._last_processed_block:
+            self._last_processed_block = current_block - 1
+
+        if self._last_processed_block:
+            if current_block - self._last_processed_block >= 10:
+                self._logger.warning(
+                    'Last processed block is too far behind current block, '
+                    'processing current block',
+                )
+                self._last_processed_block = current_block - 10
+
+            # Get events from current block to last_processed_block
+            try:
+                events = await self.get_events(self._last_processed_block, current_block)
             except Exception as e:
                 self._logger.opt(exception=True).error(
                     (
-                        'Unable to fetch current block, ERROR: {}, '
-                        'sleeping for {} seconds.'
+                        'Unable to fetch events from block {} to block {}, '
+                        'ERROR: {}, sleeping for {} seconds.'
                     ),
+                    self._last_processed_block + 1,
+                    current_block,
                     e,
                     settings.rpc.polling_interval,
                 )
-
                 await asyncio.sleep(settings.rpc.polling_interval)
-                continue
+                
 
-            if not self._last_processed_block:
-                self._last_processed_block = current_block - 1
+        else:
 
-            if self._last_processed_block:
-                if current_block - self._last_processed_block >= 10:
-                    self._logger.warning(
-                        'Last processed block is too far behind current block, '
-                        'processing current block',
-                    )
-                    self._last_processed_block = current_block - 10
+            self._logger.debug(
+                'No last processed epoch found, processing current block',
+            )
 
-                # Get events from current block to last_processed_block
-                try:
-                    events = await self.get_events(self._last_processed_block, current_block)
-                except Exception as e:
-                    self._logger.opt(exception=True).error(
-                        (
-                            'Unable to fetch events from block {} to block {}, '
-                            'ERROR: {}, sleeping for {} seconds.'
-                        ),
-                        self._last_processed_block + 1,
-                        current_block,
-                        e,
-                        settings.rpc.polling_interval,
-                    )
-                    await asyncio.sleep(settings.rpc.polling_interval)
-                    continue
-
-            else:
-
-                self._logger.debug(
-                    'No last processed epoch found, processing current block',
-                )
-
-                try:
-                    events = await self.get_events(current_block, current_block)
-                except Exception as e:
-                    self._logger.opt(exception=True).error(
-                        (
-                            'Unable to fetch events from block {} to block {}, '
-                            'ERROR: {}, sleeping for {} seconds.'
-                        ),
-                        current_block,
-                        current_block,
-                        e,
-                        settings.rpc.polling_interval,
-                    )
-                    await asyncio.sleep(settings.rpc.polling_interval)
-                    continue
-
-            for event_type, event in events:
-                self._logger.info(
-                    'Processing event: {}', event,
-                )
-                asyncio.ensure_future(
-                    self.processor_distributor.process_event(
-                        event_type, event,
+            try:
+                events = await self.get_events(current_block, current_block)
+            except Exception as e:
+                self._logger.opt(exception=True).error(
+                    (
+                        'Unable to fetch events from block {} to block {}, '
+                        'ERROR: {}, sleeping for {} seconds.'
                     ),
+                    current_block,
+                    current_block,
+                    e,
+                    settings.rpc.polling_interval,
                 )
+                await asyncio.sleep(settings.rpc.polling_interval)
+                
 
-            self._last_processed_block = current_block
+        for event_type, event in events:
+            self._logger.info(
+                'Processing event: {}', event,
+            )
+            asyncio.ensure_future(
+                self.processor_distributor.process_event(
+                    event_type, event,
+                ),
+            )
 
-            self._logger.info(
-                'DONE: Processed blocks till {}',
-                current_block,
-            )
-            self._logger.info(
-                'Sleeping for {} seconds...',
-                settings.rpc.polling_interval,
-            )
-            await asyncio.sleep(settings.rpc.polling_interval)
+        self._last_processed_block = current_block
+
+        self._logger.info(
+            'DONE: Processed blocks till {}',
+            current_block,
+        )
+        self._logger.info(
+            'Sleeping for {} seconds...',
+            settings.rpc.polling_interval,
+        )
 
     def run(self):
         """

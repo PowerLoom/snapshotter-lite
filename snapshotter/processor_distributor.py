@@ -29,7 +29,6 @@ from snapshotter.utils.snapshot_worker import SnapshotAsyncWorker
 
 
 class ProcessorDistributor:
-    _anchor_rpc_helper: RpcHelper
     _async_transport: AsyncHTTPTransport
     _client: AsyncClient
 
@@ -68,7 +67,6 @@ class ProcessorDistributor:
         """
         if not self._rpc_helper:
             self._rpc_helper = RpcHelper()
-            self._anchor_rpc_helper = RpcHelper(rpc_settings=settings.anchor_chain_rpc)
 
     async def _init_httpx_client(self):
         """
@@ -97,18 +95,11 @@ class ProcessorDistributor:
             self._logger = logger.bind(
                 module='ProcessDistributor',
             )
-            self._anchor_rpc_helper = RpcHelper(
-                rpc_settings=settings.anchor_chain_rpc,
-            )
-            protocol_abi = read_json_file(settings.protocol_state.abi, self._logger)
-            self._protocol_state_contract = self._anchor_rpc_helper.get_current_node()['web3_client'].eth.contract(
-                address=to_checksum_address(
-                    settings.protocol_state.address,
-                ),
-                abi=protocol_abi,
-            )
+
+
+
             try:
-                source_block_time = self._protocol_state_contract.functions.SOURCE_CHAIN_BLOCK_TIME().call()
+                source_block_time = 120000
             except Exception as e:
                 self._logger.error(
                     'Exception in querying protocol state for source chain block time: {}',
@@ -119,7 +110,7 @@ class ProcessorDistributor:
                 self._logger.debug('Set source chain block time to {}', self._source_chain_block_time)
 
             try:
-                epoch_size = self._protocol_state_contract.functions.EPOCH_SIZE().call()
+                epoch_size = 10
             except Exception as e:
                 self._logger.error(
                     'Exception in querying protocol state for epoch size: {}',
@@ -129,7 +120,7 @@ class ProcessorDistributor:
                 self._epoch_size = epoch_size
 
             try:
-                slots_per_day = self._protocol_state_contract.functions.SLOTS_PER_DAY().call()
+                slots_per_day = 10
             except Exception as e:
                 self._logger.error(
                     'Exception in querying protocol state for slots per day: {}',
@@ -139,11 +130,8 @@ class ProcessorDistributor:
                 self._slots_per_day = slots_per_day
 
             try:
-                allowed_snapshotters = self._protocol_state_contract.functions.getSnapshotters().call()
-                if to_checksum_address(settings.instance_id) in allowed_snapshotters:
-                    self._snapshotter_enabled = True
-                else:
-                    self._snapshotter_enabled = False
+                self._snapshotter_enabled = True
+
             except Exception as e:
                 self._logger.error(
                     'Exception in querying protocol state for snapshotter: {}',
@@ -153,9 +141,7 @@ class ProcessorDistributor:
             self._logger.info('Snapshotter enabled: {}', self._snapshotter_enabled)
 
             try:
-                snapshotter_slot = self._protocol_state_contract.functions.getSnapshotterSlot(
-                    to_checksum_address(settings.instance_id),
-                ).call()
+                snapshotter_slot = 1
                 if snapshotter_slot == 0:
                     self._logger.error('Snapshotter slot is not set, exiting')
                     exit(0)
@@ -173,12 +159,9 @@ class ProcessorDistributor:
             self._logger.info('Snapshotter enabled: {}', self._snapshotter_enabled)
 
             try:
-                self._current_day = self._protocol_state_contract.functions.dayCounter().call()
+                self._current_day = 1
 
-                task_completion_status = self._protocol_state_contract.functions.checkUserTaskStatusForDay(
-                    to_checksum_address(settings.instance_id),
-                    self._current_day,
-                ).call()
+                task_completion_status = None
                 if task_completion_status:
                     self._snapshotter_active = False
                 else:
@@ -204,28 +187,12 @@ class ProcessorDistributor:
         for snapshots. It also updates the project type configuration mapping with the relevant projects.
         """
         if not self._projects_list:
-            with open(settings.protocol_state.abi, 'r') as f:
-                abi_dict = json.load(f)
-            protocol_state_contract = self._anchor_rpc_helper.get_current_node()['web3_client'].eth.contract(
-                address=Web3.to_checksum_address(
-                    settings.protocol_state.address,
-                ),
-                abi=abi_dict,
-            )
-            self._source_chain_epoch_size = await get_source_chain_epoch_size(
-                rpc_helper=self._anchor_rpc_helper,
-                state_contract_obj=protocol_state_contract,
-            )
 
-            self._source_chain_id = await get_source_chain_id(
-                rpc_helper=self._anchor_rpc_helper,
-                state_contract_obj=protocol_state_contract,
-            )
+            self._source_chain_epoch_size = 10
 
-            submission_window = await get_snapshot_submision_window(
-                rpc_helper=self._anchor_rpc_helper,
-                state_contract_obj=protocol_state_contract,
-            )
+            self._source_chain_id = 1
+
+            submission_window = 50
             self._submission_window = submission_window
 
     async def _epoch_release_processor(self, message: EpochReleasedEvent):
