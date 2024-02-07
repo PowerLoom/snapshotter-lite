@@ -291,6 +291,16 @@ class EventDetectorProcess(multiprocessing.Process):
         self.ev_loop.run_until_complete(
             self._detect_events(),
         )
+        # Define ANSI escape code for green color
+        green_color = "\033[92m"
+        # Reset color
+        reset_color = "\033[0m"
+        # Unicode character for check mark
+        check_mark = "\u2713"
+
+        # Print the green check mark
+        self._logger.info(f"{green_color}{check_mark}: 'All Runs successful'{reset_color}")
+
 
 
 if __name__ == '__main__':
