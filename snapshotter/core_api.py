@@ -51,13 +51,7 @@ async def startup_boilerplate():
     """
     app.state.core_settings = settings
     app.state.local_user_cache = dict()
-    app.state.anchor_rpc_helper = RpcHelper(rpc_settings=settings.anchor_chain_rpc)
-    app.state.protocol_state_contract = app.state.anchor_rpc_helper.get_current_node()['web3_client'].eth.contract(
-        address=Web3.to_checksum_address(
-            protocol_state_contract_address,
-        ),
-        abi=protocol_state_contract_abi,
-    )
+
 
     if not settings.ipfs.url:
         rest_logger.warning('IPFS url not set, /data API endpoint will be unusable!')

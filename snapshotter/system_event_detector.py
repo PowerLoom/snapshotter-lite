@@ -1,4 +1,5 @@
 import asyncio
+import json
 import multiprocessing
 import resource
 import signal
@@ -51,8 +52,7 @@ class EventDetectorProcess(multiprocessing.Process):
         )
 
         self._last_processed_block = None
-
-        self.rpc_helper = RpcHelper(rpc_settings=settings.rpc)
+        self.rpc_helper = RpcHelper(settings.rpc)
 
 
         # event EpochReleased(uint256 indexed epochId, uint256 begin, uint256 end, uint256 timestamp);
@@ -60,12 +60,36 @@ class EventDetectorProcess(multiprocessing.Process):
         # event DailyTaskCompletedEvent(address snapshotterAddress, uint256 dayId, uint256 timestamp);
 
         EVENTS_ABI = {
-            'EpochReleased': self.contract.events.EpochReleased._get_event_abi(),
-            'allSnapshottersUpdated': self.contract.events.allSnapshottersUpdated._get_event_abi(),
-            'DayStartedEvent': self.contract.events.DayStartedEvent._get_event_abi(),
-            'DailyTaskCompletedEvent': self.contract.events.DailyTaskCompletedEvent._get_event_abi(),
+            'EpochReleased': json.loads('''{
+                        "anonymous": false,
+                        "inputs": [
+                            {
+                            "indexed": false,
+                            "name": "epochId",
+                            "type": "uint256"
+                            },
+                            {
+                            "indexed": false,
+                            "name": "beginBlock",
+                            "type": "uint256"
+                            },
+                            {
+                            "indexed": false,
+                            "name": "endBlock",
+                            "type": "uint256"
+                            },
+                            {
+                            "indexed": false,
+                            "name": "timestamp",
+                            "type": "uint256"
+                            }
+                        ],
+                        "name": "EpochReleased",
+                        "type": "event"
+                        }
+                                        '''
+            )
         }
-
         EVENT_SIGS = {
             'EpochReleased': 'EpochReleased(uint256,uint256,uint256,uint256)',
             'allSnapshottersUpdated': 'allSnapshottersUpdated(address,bool)',
@@ -108,7 +132,7 @@ class EventDetectorProcess(multiprocessing.Process):
 
         log = {
             "args": {
-                "begin": to_block - settings.epoch_length,
+                "begin": to_block - 9,
                 "end": to_block,
                 "epochId": 1,
                 "timestamp": int(time.time()),
@@ -122,7 +146,7 @@ class EventDetectorProcess(multiprocessing.Process):
                     epochId=log['args']['epochId'],
                     timestamp=log['args']['timestamp'],
                 )
-        latest_epoch_id = max(latest_epoch_id, log['args']['epochId'])
+        latest_epoch_id = max(1, log['args']['epochId'])
 
         events.append((log['event'], event))
 
@@ -155,8 +179,11 @@ class EventDetectorProcess(multiprocessing.Process):
         If the last processed block is too far behind the current block, it processes the current block.
         """
         try:
+            self._logger.debug('rpc helper init {}', self.rpc_helper._nodes)
+            await self.rpc_helper.init()
             current_block = await self.rpc_helper.get_current_block()
             self._logger.info('Current block: {}', current_block)
+            print(current_block, 'current block')
 
         except Exception as e:
             self._logger.opt(exception=True).error(

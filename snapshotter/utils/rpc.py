@@ -178,6 +178,7 @@ class RpcHelper(object):
             nodes = self._rpc_settings.full_nodes
 
         for node in nodes:
+            self._logger.debug('Loading web3 provider for node {}', node.url)
             try:
                 self._nodes.append(
                     {

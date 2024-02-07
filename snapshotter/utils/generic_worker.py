@@ -298,46 +298,46 @@ class GenericAsyncWorker:
         Initializes the RpcHelper objects for the worker and anchor chain, and sets up the protocol state contract.
         """
         self._rpc_helper = RpcHelper(rpc_settings=settings.rpc)
-        self._anchor_rpc_helper = RpcHelper(rpc_settings=settings.anchor_chain_rpc)
+        # self._anchor_rpc_helper = RpcHelper(rpc_settings=settings.anchor_chain_rpc)
 
-        self.protocol_state_contract = self._anchor_rpc_helper.get_current_node()['web3_client'].eth.contract(
-            address=Web3.to_checksum_address(
-                self.protocol_state_contract_address,
-            ),
-            abi=read_json_file(
-                settings.protocol_state.abi,
-                self.logger,
-            ),
-        )
+        # self.protocol_state_contract = self._anchor_rpc_helper.get_current_node()['web3_client'].eth.contract(
+        #     address=Web3.to_checksum_address(
+        #         self.protocol_state_contract_address,
+        #     ),
+        #     abi=read_json_file(
+        #         settings.protocol_state.abi,
+        #         self.logger,
+        #     ),
+        # )
 
-        self._anchor_chain_id = self._anchor_rpc_helper.get_current_node()['web3_client'].eth.chain_id
-        self._keccak_hash = lambda x: sha3.keccak_256(x).digest()
-        self._domain_separator = make_domain(
-            name='PowerloomProtocolContract', version='0.1', chainId=self._anchor_chain_id,
-            verifyingContract=self.protocol_state_contract_address,
-        )
-        self._signer_private_key = PrivateKey.from_hex(settings.signer_private_key)
+        # self._anchor_chain_id = self._anchor_rpc_helper.get_current_node()['web3_client'].eth.chain_id
+        # self._keccak_hash = lambda x: sha3.keccak_256(x).digest()
+        # self._domain_separator = make_domain(
+        #     name='PowerloomProtocolContract', version='0.1', chainId=self._anchor_chain_id,
+        #     verifyingContract=self.protocol_state_contract_address,
+        # )
+        # self._signer_private_key = PrivateKey.from_hex(settings.signer_private_key)
 
-    def generate_signature(self, snapshot_cid, epoch_id, project_id):
-        current_block = self._anchor_rpc_helper.get_current_node()['web3_client'].eth.block_number
+    # def generate_signature(self, snapshot_cid, epoch_id, project_id):
+    #     current_block = self._anchor_rpc_helper.get_current_node()['web3_client'].eth.block_number
 
-        deadline = current_block + settings.protocol_state.deadline_buffer
-        request = Request(
-            deadline=deadline,
-            snapshotCid=snapshot_cid,
-            epochId=epoch_id,
-            projectId=project_id,
-        )
+    #     deadline = current_block + settings.protocol_state.deadline_buffer
+    #     request = Request(
+    #         deadline=deadline,
+    #         snapshotCid=snapshot_cid,
+    #         epochId=epoch_id,
+    #         projectId=project_id,
+    #     )
 
-        signable_bytes = request.signable_bytes(self._domain_separator)
-        signature = self._signer_private_key.sign_recoverable(signable_bytes, hasher=self._keccak_hash)
-        v = signature[64] + 27
-        r = big_endian_to_int(signature[0:32])
-        s = big_endian_to_int(signature[32:64])
+    #     signable_bytes = request.signable_bytes(self._domain_separator)
+    #     signature = self._signer_private_key.sign_recoverable(signable_bytes, hasher=self._keccak_hash)
+    #     v = signature[64] + 27
+    #     r = big_endian_to_int(signature[0:32])
+    #     s = big_endian_to_int(signature[32:64])
 
-        final_sig = r.to_bytes(32, 'big') + s.to_bytes(32, 'big') + v.to_bytes(1, 'big')
-        request_ = {'deadline': deadline, 'snapshotCid': snapshot_cid, 'epochId': epoch_id, 'projectId': project_id}
-        return request_, final_sig
+    #     final_sig = r.to_bytes(32, 'big') + s.to_bytes(32, 'big') + v.to_bytes(1, 'big')
+    #     request_ = {'deadline': deadline, 'snapshotCid': snapshot_cid, 'epochId': epoch_id, 'projectId': project_id}
+    #     return request_, final_sig
 
     async def _init_httpx_client(self):
         """
@@ -372,9 +372,7 @@ class GenericAsyncWorker:
     async def _init_protocol_meta(self):
         # TODO: combine these into a single call
         try:
-            source_block_time = await self._anchor_rpc_helper.web3_call(
-                [self.protocol_state_contract.functions.SOURCE_CHAIN_BLOCK_TIME()],
-            )
+            source_block_time = [120000]
         except Exception as e:
             self.logger.exception(
                 'Exception in querying protocol state for source chain block time: {}',
@@ -385,9 +383,7 @@ class GenericAsyncWorker:
             self._source_chain_block_time = source_block_time / 10 ** 4
             self.logger.debug('Set source chain block time to {}', self._source_chain_block_time)
         try:
-            epoch_size = await self._anchor_rpc_helper.web3_call(
-                [self.protocol_state_contract.functions.EPOCH_SIZE()],
-            )
+            epoch_size = [10]
         except Exception as e:
             self.logger.exception(
                 'Exception in querying protocol state for epoch size: {}',

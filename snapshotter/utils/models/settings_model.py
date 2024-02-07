@@ -101,7 +101,6 @@ class Settings(BaseModel):
     relayer: Relayer
     ipfs: IPFSConfig
     web3storage: Web3Storage
-    anchor_chain_rpc: RPCConfigBase
 
 
 # Projects related models
