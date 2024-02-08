@@ -9,6 +9,10 @@ from eth_utils import keccak
 from hexbytes import HexBytes
 from httpx import AsyncClient
 from httpx import AsyncHTTPTransport
+from web3.middleware import async_construct_simple_cache_middleware
+from web3.middleware import construct_simple_cache_middleware
+from web3.utils.caching import SimpleCache
+from web3.types import RPCEndpoint
 from httpx import Limits
 from httpx import Timeout
 from tenacity import retry
@@ -22,6 +26,8 @@ from web3._utils.abi import map_abi_data
 from web3._utils.events import get_event_data
 from web3._utils.normalizers import BASE_RETURN_NORMALIZERS
 from web3.types import TxParams
+from typing import cast
+from typing import Set
 from web3.types import Wei
 
 from snapshotter.settings.config import settings
@@ -29,6 +35,15 @@ from snapshotter.utils.default_logger import logger
 from snapshotter.utils.exceptions import RPCException
 from snapshotter.utils.models.settings_model import RPCConfigBase
 
+
+SIMPLE_CACHE_RPC_CHAIN_ID = cast(
+    Set[RPCEndpoint],
+    (
+        "web3_clientVersion",
+        "net_version",
+        "eth_chainId",
+    ),
+)
 
 def get_contract_abi_dict(abi):
     """
@@ -117,6 +132,8 @@ class RpcHelper(object):
         self._logger = logger.bind(module='RpcHelper')
         self._client = None
         self._async_transport = None
+        self._async_cache_chain_id_middleware = None
+        self._cache_chain_id_middleware = None
 
     async def _init_http_clients(self):
         """
@@ -146,10 +163,20 @@ class RpcHelper(object):
         Loads async web3 providers for each node in the list of nodes.
         If a node already has a web3 client, it is skipped.
         """
+        if not self._async_cache_chain_id_middleware:
+            self._async_cache_chain_id_middleware = await async_construct_simple_cache_middleware(
+                SimpleCache(),
+                SIMPLE_CACHE_RPC_CHAIN_ID,
+            )
         for node in self._nodes:
             if node['web3_client_async'] is not None:
                 continue
+
             node['web3_client_async'] = AsyncWeb3(AsyncHTTPProvider(node['rpc_url']))
+            node['web3_client_async'].middleware_onion.add(
+                self._async_cache_chain_id_middleware,
+                name='simple_cache_chain_id',
+            )
 
     async def init(self):
         """
@@ -172,16 +199,26 @@ class RpcHelper(object):
         Load web3 providers based on the archive mode.
         If archive mode is True, load archive nodes, otherwise load full nodes.
         """
+
+        if not self._cache_chain_id_middleware:
+            self._cache_chain_id_middleware = construct_simple_cache_middleware(
+                SimpleCache(),
+                SIMPLE_CACHE_RPC_CHAIN_ID,
+            )
         if self._archive_mode:
             nodes = self._rpc_settings.archive_nodes
         else:
             nodes = self._rpc_settings.full_nodes
 
         for node in nodes:
+            self._logger.debug('Loading web3 provider for node {}', node.url)
             try:
+                _w3 = Web3(Web3.HTTPProvider(node.url))
+                _w3.middleware_onion.add(self._cache_chain_id_middleware, name='simple_cache_chain_id')
+
                 self._nodes.append(
                     {
-                        'web3_client': Web3(Web3.HTTPProvider(node.url)),
+                        'web3_client': _w3,
                         'web3_client_async': None,
                         'rpc_url': node.url,
                     },
@@ -295,6 +332,7 @@ class RpcHelper(object):
         async def f(node_idx):
             try:
                 node = self._nodes[node_idx]
+
                 rpc_url = node.get('rpc_url')
 
                 params: TxParams = {'gas': Wei(0), 'gasPrice': Wei(0)}
@@ -303,7 +341,6 @@ class RpcHelper(object):
                     raise ValueError(
                         f'Missing address for batch_call in `{[contract_function.fn_name]}`',
                     )
-
                 output_type = [
                     output['type'] for output in contract_function.abi['outputs']
                 ]
@@ -354,7 +391,6 @@ class RpcHelper(object):
                     err=lambda: str(exc),
                 )
                 raise exc
-
         return await f(node_idx=0)
 
     async def get_transaction_receipt(self, tx_hash):
@@ -406,22 +442,6 @@ class RpcHelper(object):
             else:
                 return tx_receipt_details
         return await f(node_idx=0)
-
-    async def get_current_block(self, node_idx=0):
-        """
-        Returns the current block number from the Ethereum node at the specified index.
-
-        Args:
-            node_idx (int): Index of the Ethereum node to use. Defaults to 0.
-
-        Returns:
-            int: The current block number.
-
-        """
-        node = self._nodes[node_idx]
-
-        current_block = node['web3_client'].eth.block_number
-        return current_block
 
     async def web3_call(self, tasks, from_address=None, block=None, overrides=None):
         """
