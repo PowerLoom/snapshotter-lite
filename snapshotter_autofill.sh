@@ -2,6 +2,9 @@
 
 source .env
 
+# setting up git submodules
+git submodule update --init --recursive
+
 
 echo 'populating setting from environment values...';
 

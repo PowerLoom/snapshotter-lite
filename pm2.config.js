@@ -1,7 +1,7 @@
 // this means if app restart {MAX_RESTART} times in 1 min then it stops
 const NODE_ENV = process.env.NODE_ENV || 'development';
 
-const MAX_RESTART = 1;
+const MAX_RESTART = 0;
 const MIN_UPTIME = 60000;
 
 

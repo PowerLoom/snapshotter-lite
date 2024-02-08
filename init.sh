@@ -35,9 +35,6 @@ echo "Killing old processes..."
 pkill -f snapshotter
 # only works for debian based systems
 
-# setting up git submodules
-git submodule update --init --recursive
-
 ./snapshotter_autofill.sh || exit 1
 
 # check python3 is present
