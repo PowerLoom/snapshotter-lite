@@ -16,7 +16,8 @@ module.exports = {
       out_file: "/dev/null",
       env: {
         NODE_ENV: NODE_ENV,
-      }
+      },
+      "autorestart" : false
     },
 
   ]
