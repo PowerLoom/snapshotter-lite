@@ -71,14 +71,12 @@ class EventDetectorProcess(multiprocessing.Process):
 
         EVENTS_ABI = {
             'EpochReleased': self.contract.events.EpochReleased._get_event_abi(),
-            'allSnapshottersUpdated': self.contract.events.allSnapshottersUpdated._get_event_abi(),
             'DayStartedEvent': self.contract.events.DayStartedEvent._get_event_abi(),
             'DailyTaskCompletedEvent': self.contract.events.DailyTaskCompletedEvent._get_event_abi(),
         }
 
         EVENT_SIGS = {
             'EpochReleased': 'EpochReleased(uint256,uint256,uint256,uint256)',
-            'allSnapshottersUpdated': 'allSnapshottersUpdated(address,bool)',
             'DayStartedEvent': 'DayStartedEvent(uint256,uint256)',
             'DailyTaskCompletedEvent': 'DailyTaskCompletedEvent(address,uint256,uint256)',
 
@@ -136,13 +134,6 @@ class EventDetectorProcess(multiprocessing.Process):
                 latest_epoch_id = max(latest_epoch_id, log.args.epochId)
                 events.append((log.event, event))
 
-            elif log.event == 'allSnapshottersUpdated':
-                event = SnapshottersUpdatedEvent(
-                    snapshotterAddress=log.args.snapshotterAddress,
-                    allowed=log.args.allowed,
-                    timestamp=int(time.time()),
-                )
-                events.append((log.event, event))
             elif log.event == 'DayStartedEvent':
                 event = DayStartedEvent(
                     dayId=log.args.dayId,

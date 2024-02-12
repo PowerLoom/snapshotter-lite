@@ -139,18 +139,16 @@ class ProcessorDistributor:
                 self._slots_per_day = slots_per_day
 
             try:
-                allowed_snapshotters = self._protocol_state_contract.functions.getSnapshotters().call()
-                if to_checksum_address(settings.instance_id) in allowed_snapshotters:
-                    self._snapshotter_enabled = True
-                else:
-                    self._snapshotter_enabled = False
+                snapshotter_address = self._protocol_state_contract.functions.slotSnapshotterMapping(settings.slot_id).call()
+                if snapshotter_address != settings.instance_id:
+                    self._logger.error('Signer Account is not the one configured in slot, exiting!')
+                    exit(0)
             except Exception as e:
                 self._logger.error(
-                    'Exception in querying protocol state for snapshotter: {}',
+                    'Exception in querying protocol state for snapshotter status: {}',
                     e,
                 )
-                self._snapshotter_enabled = False
-            self._logger.info('Snapshotter enabled: {}', self._snapshotter_enabled)
+                exit(0)
 
             try:
                 snapshotter_slot = self._protocol_state_contract.functions.getSnapshotterSlot(
@@ -169,8 +167,6 @@ class ProcessorDistributor:
                 )
                 self._logger.error('Unable to get snapshotter slot, exiting')
                 exit(1)
-
-            self._logger.info('Snapshotter enabled: {}', self._snapshotter_enabled)
 
             try:
                 self._current_day = self._protocol_state_contract.functions.dayCounter().call()
@@ -319,14 +315,7 @@ class ProcessorDistributor:
         """
         if type_ == 'EpochReleased':
 
-            if self._snapshotter_enabled:
-                await self._epoch_release_processor(event)
-            else:
-                self._logger.info('System is not active, ignoring released Epoch')
-
-        elif type_ == 'allSnapshottersUpdated':
-            if event.snapshotterAddress == to_checksum_address(settings.instance_id):
-                self._snapshotter_enabled = event.allowed
+            await self._epoch_release_processor(event)
 
         elif type_ == 'DayStartedEvent':
             self._logger.info('Day started event received, setting active status to True')
