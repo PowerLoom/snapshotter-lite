@@ -93,6 +93,8 @@ fi
 
 echo "building...";
 
+docker pull ghcr.io/powerloom/snapshotter-lite:simulation_mode
+
 if ! [ -x "$(command -v docker-compose)" ]; then
     echo 'docker compose not found, trying to see if compose exists within docker';
     if [ "$IPFS_URL" ]; then
