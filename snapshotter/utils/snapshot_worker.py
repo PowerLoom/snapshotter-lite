@@ -136,9 +136,9 @@ class SnapshotAsyncWorker(GenericAsyncWorker):
                         storage_flag=settings.web3storage.upload_snapshots,
                     )
             if commit_payload:
-                self.logger.info('Sent snapshots to commit service: {}', snapshots)
+                self.logger.info('Sent snapshots to commit service!')
             else:
-                self.logger.info('Generated snapshots: {}', snapshots)
+                self.logger.info('Generated snapshots')
 
     async def process_task(self, msg_obj: SnapshotProcessMessage, task_type: str, commit_payload: bool):
         """

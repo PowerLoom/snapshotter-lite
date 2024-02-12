@@ -140,7 +140,7 @@ class ProcessorDistributor:
                 epochId=epoch.epochId,
                 day=epoch.day,
             )
-            commit_payload = False
+            commit_payload = True
 
             try:
                 await self.snapshot_worker.process_task(process_unit, project_type, commit_payload)

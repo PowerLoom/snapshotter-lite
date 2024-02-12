@@ -91,6 +91,7 @@ class Settings(BaseModel):
     core_api: CoreAPI
     instance_id: str
     signer_private_key: str
+    slot_id: int
     rpc: RPCConfigFull
     rlimit: RLimit
     reporting: ReportingConfig
