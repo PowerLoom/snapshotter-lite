@@ -28,7 +28,7 @@ if [ ! -f .env ]; then
     fi
 
     # ask user for SLOT_ID and replace it in .env
-    if [ -z "$SIGNER_ACCOUNT_PRIVATE_KEY" ]; then
+    if [ -z "$SLOT_ID" ]; then
         echo "Enter Your SLOT_ID (NFT_ID): ";
         read SLOT_ID;
         sed -i'.backup' "s#<slot-id>#$SLOT_ID#" .env
