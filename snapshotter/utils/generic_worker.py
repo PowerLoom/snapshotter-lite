@@ -116,7 +116,6 @@ class GenericAsyncWorker:
         self._running_callback_tasks: Dict[str, asyncio.Task] = dict()
         self.protocol_state_contract = None
 
-        self.protocol_state_contract_address = settings.protocol_state.address
         self.initialized = False
         self.logger = logger.bind(module='GenericAsyncWorker')
 
@@ -283,7 +282,7 @@ class GenericAsyncWorker:
                     'projectId': project_id,
                     'epochId': epoch_id,
                     'snapshotCid': snapshot_cid,
-                    'contractAddress': self.protocol_state_contract_address,
+                    'contractAddress': "",
                 },
             ),
         )

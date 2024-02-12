@@ -19,7 +19,7 @@ if [ -z "$SIGNER_ACCOUNT_ADDRESS" ]; then
 fi
 
 if [ -z "$SLOT_ID" ]; then
-    echo "SLOT_ID not found, please set this in your .env!";
+    echo "SLOT_ID (NFT ID) not found, please set this in your .env!";
     exit 1;
 fi
 
