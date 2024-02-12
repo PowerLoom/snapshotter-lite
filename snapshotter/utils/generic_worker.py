@@ -4,7 +4,7 @@ import time
 from typing import Dict
 from typing import Union
 from urllib.parse import urljoin
-
+import sys
 import httpx
 import sha3
 import tenacity
@@ -230,21 +230,11 @@ class GenericAsyncWorker:
             try:
                 await self._submit_to_relayer(snapshot_cid, epoch.epochId, project_id)
             except Exception as e:
-                self.logger.opt(exception=True).error(
-                    'Exception submitting snapshot to relayer for epoch {}: {}, Error: {},'
-                    'sending failure notifications', epoch, snapshot, e,
+                self.logger.error(
+                    '❌ Failed to submit snapshot to relayer, got error :{}',
+                    e
                 )
-                notification_message = SnapshotterIssue(
-                    instanceID=settings.instance_id,
-                    issueType=SnapshotterReportState.MISSED_SNAPSHOT.value,
-                    projectID=project_id,
-                    epochId=str(epoch.epochId),
-                    timeOfReporting=str(time.time()),
-                    extra=json.dumps({'issueDetails': f'Error : {e}'}),
-                )
-                await send_failure_notifications_async(
-                    client=self._client, message=notification_message,
-                )
+                sys.exit(0)
 
         # upload to web3 storage
         if storage_flag:
@@ -252,12 +242,6 @@ class GenericAsyncWorker:
 
         return snapshot_cid
 
-    @retry(
-        wait=wait_random_exponential(multiplier=1, max=10),
-        stop=stop_after_attempt(5),
-        retry=retry_if_exception_type(Exception),
-        after=relayer_submit_retry_state_callback,
-    )
     async def _submit_to_relayer(self, snapshot_cid: str, epoch_id: int, project_id: str):
         """
         Submits the given snapshot to the relayer.
@@ -272,8 +256,7 @@ class GenericAsyncWorker:
         """
         request_, signature = self.generate_signature(snapshot_cid, epoch_id, project_id)
         # submit to relayer
-        f = asyncio.ensure_future(
-            self._client.post(
+        resp = await self._client.post(
                 url=urljoin(settings.relayer.host, settings.relayer.endpoint),
                 json={
                     'slotId': settings.slot_id,
@@ -284,12 +267,22 @@ class GenericAsyncWorker:
                     'snapshotCid': snapshot_cid,
                     'contractAddress': "",
                 },
-            ),
-        )
-        f.add_done_callback(misc_notification_callback_result_handler)
+            )
+
+        if resp.status_code != 200:
+            self.logger.error(
+                '❌ Failed to submit snapshot CID {} to relayer, got response code:{}| Epoch: {} | Project: {}',
+                snapshot_cid,
+                resp.status_code,
+                epoch_id,
+                project_id,
+            )
+            sys.exit(0)
+
         self.logger.info(
-            'Submitted snapshot CID {} to relayer | Epoch: {} | Project: {}',
+            'Submitted snapshot CID {} to relayer, got response {}| Epoch: {} | Project: {}',
             snapshot_cid,
+            resp.status_code,
             epoch_id,
             project_id,
         )
