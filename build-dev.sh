@@ -91,6 +91,9 @@ if [ "$POWERLOOM_REPORTING_URL" ]; then
     echo "Found SLACK_REPORTING_URL ${POWERLOOM_REPORTING_URL}";
 fi
 
+# setting up git submodules
+git submodule update --init --recursive
+
 docker build -t powerloom-snapshotter-lite .
 
 echo "building...";
