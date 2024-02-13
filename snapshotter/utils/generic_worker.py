@@ -318,7 +318,10 @@ class GenericAsyncWorker:
             name='PowerloomProtocolContract', version='0.1', chainId=self._anchor_chain_id,
             verifyingContract=self.protocol_state_contract_address,
         )
-        self._signer_private_key = PrivateKey.from_hex(settings.signer_private_key)
+        self._private_key = settings.signer_private_key
+        if self._private_key.startswith('0x'):
+            self._private_key = self._private_key[2:]
+        self._signer_private_key = PrivateKey.from_hex(self._private_key)
 
     def generate_signature(self, snapshot_cid, epoch_id, project_id):
         current_block = self._anchor_rpc_helper.get_current_node()['web3_client'].eth.block_number
