@@ -212,7 +212,7 @@ class EventDetectorProcess(multiprocessing.Process):
 
             # Get events from current block to last_processed_block
             try:
-                events = await self.get_events(self._last_processed_block, current_block)
+                events = await self.get_events(self._last_processed_block + 1, current_block)
             except Exception as e:
                 self._logger.opt(exception=True).error(
                     (
