@@ -14,6 +14,7 @@ from snapshotter.utils.generic_worker import GenericAsyncWorker
 from snapshotter.utils.models.data_models import SnapshotterIssue
 from snapshotter.utils.models.data_models import SnapshotterReportState
 from snapshotter.utils.models.message_models import SnapshotProcessMessage
+import sys
 
 
 class SnapshotAsyncWorker(GenericAsyncWorker):
@@ -107,6 +108,14 @@ class SnapshotAsyncWorker(GenericAsyncWorker):
             await send_failure_notifications_async(
                 client=self._client, message=notification_message,
             )
+
+            if msg_obj.epochId == 0:
+                self.logger.error(
+                    '❌ Event processing failed: {}', msg_obj,
+                )
+                self.logger.info("Please check your config and if issue persists please reach out to the team!")
+                sys.exit(1)
+
         else:
 
             if not snapshots:
@@ -126,6 +135,12 @@ class SnapshotAsyncWorker(GenericAsyncWorker):
                 project_id = self._gen_project_id(
                     task_type=task_type, data_source=data_source, primary_data_source=primary_data_source,
                 )
+                # check if epoch id is 0, if yes send to snap API else function normally
+                if msg_obj.epochId == 0:
+                    # epoch: SnapshotProcessMessage, snapshot: BaseModel
+                    await self._submit_to_snap_api_and_check(
+                        project_id=project_id, epoch=msg_obj, snapshot=snapshot,
+                    )
                 if commit_payload:
                     await self._commit_payload(
                         task_type=task_type,
@@ -135,10 +150,6 @@ class SnapshotAsyncWorker(GenericAsyncWorker):
                         snapshot=snapshot,
                         storage_flag=settings.web3storage.upload_snapshots,
                     )
-            if commit_payload:
-                self.logger.info('Sent snapshots to commit service: {}', snapshots)
-            else:
-                self.logger.info('Generated snapshots: {}', snapshots)
 
     async def process_task(self, msg_obj: SnapshotProcessMessage, task_type: str, commit_payload: bool):
         """

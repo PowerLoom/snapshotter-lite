@@ -6,10 +6,10 @@ import time
 from signal import SIGINT
 from signal import SIGQUIT
 from signal import SIGTERM
-
+import httpx
 from eth_utils.address import to_checksum_address
 from web3 import Web3
-
+import sys
 from snapshotter.processor_distributor import ProcessorDistributor
 from snapshotter.settings.config import settings
 from snapshotter.utils.default_logger import logger
@@ -18,9 +18,10 @@ from snapshotter.utils.file_utils import read_json_file
 from snapshotter.utils.models.data_models import DailyTaskCompletedEvent
 from snapshotter.utils.models.data_models import DayStartedEvent
 from snapshotter.utils.models.data_models import EpochReleasedEvent
-from snapshotter.utils.models.data_models import SnapshottersUpdatedEvent
 from snapshotter.utils.rpc import get_event_sig_and_abi
 from snapshotter.utils.rpc import RpcHelper
+from urllib.parse import urljoin
+from snapshotter.utils.models.data_models import SnapshotterPing
 
 
 class EventDetectorProcess(multiprocessing.Process):
@@ -53,10 +54,20 @@ class EventDetectorProcess(multiprocessing.Process):
         self._last_processed_block = None
 
         self.rpc_helper = RpcHelper(rpc_settings=settings.anchor_chain_rpc)
+        self._source_rpc_helper = RpcHelper()
         self.contract_abi = read_json_file(
             settings.protocol_state.abi,
             self._logger,
         )
+        self._httpx_client = httpx.Client(
+            base_url=settings.reporting.service_url,
+            limits=httpx.Limits(
+                max_keepalive_connections=2,
+                max_connections=2,
+                keepalive_expiry=300,
+            ),
+        )
+
         self.contract_address = settings.protocol_state.address
         self.contract = self.rpc_helper.get_current_node()['web3_client'].eth.contract(
             address=Web3.to_checksum_address(
@@ -64,6 +75,7 @@ class EventDetectorProcess(multiprocessing.Process):
             ),
             abi=self.contract_abi,
         )
+        self._last_reporting_service_ping = 0
 
         # event EpochReleased(uint256 indexed epochId, uint256 begin, uint256 end, uint256 timestamp);
         # event DayStartedEvent(uint256 dayId, uint256 timestamp);
@@ -92,6 +104,33 @@ class EventDetectorProcess(multiprocessing.Process):
 
     async def init(self):
         await self.processor_distributor.init()
+        await self._init_check_and_report()
+        await asyncio.sleep(120)
+
+    async def _init_check_and_report(self):
+        try:
+            self._logger.info('Checking and reporting snapshotter status')
+            current_block_number = await self.rpc_helper.get_current_block_number()
+
+            event = EpochReleasedEvent(
+                begin=current_block_number - 9,
+                end=current_block_number,
+                epochId=0,
+                timestamp=int(time.time()),
+            )
+
+            self._logger.info(
+                'Processing dummy event: {}', event,
+            )
+            await self.processor_distributor.process_event(
+                "EpochReleased", event,
+            )
+        except Exception as e:
+            self._logger.error(
+                '❌ Dummy Event processing failed! Error: {}', e,
+            )
+            self._logger.info("Please check your config and if issue persists please reach out to the team!")
+            sys.exit(1)
 
     async def get_events(self, from_block: int, to_block: int):
         """
@@ -176,6 +215,22 @@ class EventDetectorProcess(multiprocessing.Process):
         """
         while True:
             try:
+                if settings.reporting.service_url and int(time.time()) - self._last_reporting_service_ping >= 30:
+                    self._logger.info('Pinging reporting service')
+                    self._last_reporting_service_ping = int(time.time())
+                    try:
+                        self._httpx_client.post(
+                            url=urljoin(settings.reporting.service_url, '/ping'),
+                            json=SnapshotterPing(instanceID=settings.instance_id, slotId=settings.slot_id).dict(),
+                        )
+                    except Exception as e:
+                        if settings.logs.trace_enabled:
+                            self._logger.opt(exception=True).error('Error while pinging reporting service: {}', e)
+                        else:
+                            self._logger.error(
+                                'Error while pinging reporting service: {}', e,
+                            )
+
                 current_block = await self.rpc_helper.get_current_block_number()
                 self._logger.info('Current block: {}', current_block)
 

@@ -315,7 +315,7 @@ class ProcessorDistributor:
         """
         if type_ == 'EpochReleased':
 
-            await self._epoch_release_processor(event)
+            return await self._epoch_release_processor(event)
 
         elif type_ == 'DayStartedEvent':
             self._logger.info('Day started event received, setting active status to True')
