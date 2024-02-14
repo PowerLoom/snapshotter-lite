@@ -110,7 +110,7 @@ class EventDetectorProcess(multiprocessing.Process):
     async def _init_check_and_report(self):
         try:
             self._logger.info('Checking and reporting snapshotter status')
-            current_block_number = await self.rpc_helper.get_current_block_number()
+            current_block_number = await self._source_rpc_helper.get_current_block_number()
 
             event = EpochReleasedEvent(
                 begin=current_block_number - 9,
