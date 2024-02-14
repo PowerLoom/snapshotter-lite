@@ -53,7 +53,7 @@ class EventDetectorProcess(multiprocessing.Process):
 
         self._last_processed_block = None
 
-        self.rpc_helper = RpcHelper(rpc_settings=settings.anchor_rpc)
+        self.rpc_helper = RpcHelper(rpc_settings=settings.anchor_chain_rpc)
         self._source_rpc_helper = RpcHelper(rpc_settings=settings.rpc)
         self.contract_abi = read_json_file(
             settings.protocol_state.abi,
