@@ -205,7 +205,7 @@ class GenericAsyncWorker:
                     'projectId': project_id,
                     'epochId': epoch.epochId,
                     'snapshotCid': snapshot_cid,
-                    'contractAddress': "",
+                    'contractAddress': self.protocol_state_contract_address,
                 },
             )
 
