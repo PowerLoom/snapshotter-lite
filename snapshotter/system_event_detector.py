@@ -216,13 +216,13 @@ class EventDetectorProcess(multiprocessing.Process):
         while True:
             try:
                 if settings.reporting.service_url and int(time.time()) - self._last_reporting_service_ping >= 30:
-                    self._logger.info('Pinging reporting service')
                     self._last_reporting_service_ping = int(time.time())
                     try:
                         self._httpx_client.post(
                             url=urljoin(settings.reporting.service_url, '/ping'),
                             json=SnapshotterPing(instanceID=settings.instance_id, slotId=settings.slot_id).dict(),
                         )
+
                     except Exception as e:
                         if settings.logs.trace_enabled:
                             self._logger.opt(exception=True).error('Error while pinging reporting service: {}', e)
@@ -230,6 +230,8 @@ class EventDetectorProcess(multiprocessing.Process):
                             self._logger.error(
                                 'Error while pinging reporting service: {}', e,
                             )
+                    else:
+                        self._logger.info('Reporting service pinged successfully')
 
                 current_block = await self.rpc_helper.get_current_block_number()
                 self._logger.info('Current block: {}', current_block)
