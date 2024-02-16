@@ -140,7 +140,7 @@ class ProcessorDistributor:
 
             try:
                 snapshotter_address = self._protocol_state_contract.functions.slotSnapshotterMapping(settings.slot_id).call()
-                if snapshotter_address != settings.instance_id:
+                if snapshotter_address != to_checksum_address(settings.instance_id):
                     self._logger.error('Signer Account is not the one configured in slot, exiting!')
                     exit(0)
             except Exception as e:
@@ -287,6 +287,9 @@ class ProcessorDistributor:
             bool: True if the epoch falls in the snapshotter's slot, False otherwise.
         """
         if not self._snapshotter_active:
+            return False
+
+        if epoch.epochId == 0:
             return False
 
         N = self._slots_per_day
