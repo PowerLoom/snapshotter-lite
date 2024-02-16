@@ -26,7 +26,7 @@ from snapshotter.utils.models.message_models import EpochBase
 from snapshotter.utils.models.message_models import SnapshotProcessMessage
 from snapshotter.utils.rpc import RpcHelper
 from snapshotter.utils.snapshot_worker import SnapshotAsyncWorker
-
+from snapshotter.utils.snapshot_utils import get_eth_price_usd
 
 class ProcessorDistributor:
     _anchor_rpc_helper: RpcHelper
@@ -140,7 +140,7 @@ class ProcessorDistributor:
 
             try:
                 snapshotter_address = self._protocol_state_contract.functions.slotSnapshotterMapping(settings.slot_id).call()
-                if snapshotter_address != settings.instance_id:
+                if snapshotter_address != to_checksum_address(settings.instance_id):
                     self._logger.error('Signer Account is not the one configured in slot, exiting!')
                     exit(0)
             except Exception as e:
@@ -238,15 +238,20 @@ class ProcessorDistributor:
             epochId=message.epochId,
             day=self._current_day,
         )
+        eth_price_dict = await get_eth_price_usd(
+            message.begin,
+            message.end,
+            self._rpc_helper,
+        )
         for project_type, _ in self._project_type_config_mapping.items():
             # release for snapshotting
             asyncio.ensure_future(
                 self._distribute_callbacks_snapshotting(
-                    project_type, epoch,
+                    project_type, epoch, eth_price_dict
                 ),
             )
 
-    async def _distribute_callbacks_snapshotting(self, project_type: str, epoch: EpochBase):
+    async def _distribute_callbacks_snapshotting(self, project_type: str, epoch: EpochBase, eth_price_dict: dict):
         """
         Distributes callbacks for snapshotting to the appropriate snapshotters based on the project type and epoch.
 
@@ -268,7 +273,7 @@ class ProcessorDistributor:
         commit_payload = self._is_allowed_for_epoch(epoch)
 
         asyncio.ensure_future(
-            self.snapshot_worker.process_task(process_unit, project_type, commit_payload),
+            self.snapshot_worker.process_task(process_unit, project_type, commit_payload, eth_price_dict),
         )
 
     def _is_allowed_for_epoch(self, epoch: EpochBase):
@@ -282,6 +287,9 @@ class ProcessorDistributor:
             bool: True if the epoch falls in the snapshotter's slot, False otherwise.
         """
         if not self._snapshotter_active:
+            return False
+
+        if epoch.epochId == 0:
             return False
 
         N = self._slots_per_day
