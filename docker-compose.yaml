@@ -3,10 +3,6 @@ version: '3.9'
 services:
   snapshotter-lite:
     image: ghcr.io/powerloom/snapshotter-lite:main
-    expose:
-      - 8002
-    ports:
-      - 8002:8002
     volumes:
       - ./logs:/logs
     environment:
@@ -49,8 +45,4 @@ services:
       "
     #command:
     #   ["daemon", "--migrate=true", "--agent-version-suffix=docker"]
-    expose:
-      - 5001
-    ports:
-      - 5001:5001
     restart: on-failure

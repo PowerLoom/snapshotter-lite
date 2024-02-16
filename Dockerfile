@@ -15,8 +15,5 @@ COPY . .
 # Make the shell scripts executable
 RUN chmod +x ./snapshotter_autofill.sh ./init_docker.sh
 
-# Expose the port that the application will listen on
-EXPOSE 8002
-
 # Start the application using PM2
 # CMD pm2 start pm2.config.js && pm2 logs --lines 100
