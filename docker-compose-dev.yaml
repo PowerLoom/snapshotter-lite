@@ -3,6 +3,8 @@ version: '3.9'
 services:
   snapshotter-lite:
     image: powerloom-snapshotter-lite
+    ports:
+      - 8002:8002
     volumes:
       - ./snapshotter:/snapshotter
       - ./config:/config
@@ -45,4 +47,6 @@ services:
       echo 'starting ipfs';
       /sbin/tini -- /usr/local/bin/start_ipfs daemon --migrate=true --agent-version-suffix=docker;
       "
+    ports:
+      - 5001:5001
     restart: on-failure
