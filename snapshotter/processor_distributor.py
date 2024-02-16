@@ -151,8 +151,8 @@ class ProcessorDistributor:
                 exit(0)
 
             try:
-                snapshotter_slot = self._protocol_state_contract.functions.getSnapshotterSlot(
-                    to_checksum_address(settings.instance_id),
+                snapshotter_slot = self._protocol_state_contract.functions.getSnapshotterTimeSlot(
+                    settings.slot_id,
                 ).call()
                 if snapshotter_slot == 0:
                     self._logger.error('Snapshotter slot is not set, exiting')
@@ -171,8 +171,8 @@ class ProcessorDistributor:
             try:
                 self._current_day = self._protocol_state_contract.functions.dayCounter().call()
 
-                task_completion_status = self._protocol_state_contract.functions.checkUserTaskStatusForDay(
-                    to_checksum_address(settings.instance_id),
+                task_completion_status = self._protocol_state_contract.functions.checkSlotTaskStatusForDay(
+                    settings.slot_id,
                     self._current_day,
                 ).call()
                 if task_completion_status:
@@ -315,7 +315,7 @@ class ProcessorDistributor:
         """
         if type_ == 'EpochReleased':
 
-            await self._epoch_release_processor(event)
+            return await self._epoch_release_processor(event)
 
         elif type_ == 'DayStartedEvent':
             self._logger.info('Day started event received, setting active status to True')

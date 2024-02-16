@@ -39,6 +39,7 @@ from snapshotter.utils.models.message_models import SnapshotProcessMessage
 from snapshotter.utils.models.message_models import SnapshotSubmittedMessage
 from snapshotter.utils.models.message_models import SnapshotSubmittedMessageLite
 from snapshotter.utils.rpc import RpcHelper
+import sys
 
 
 class Request(EIP712Struct):
@@ -171,6 +172,60 @@ class GenericAsyncWorker:
         """
         snapshot_cid = await _ipfs_writer_client.add_bytes(snapshot)
         return snapshot_cid
+
+    async def _submit_to_snap_api_and_check(self, project_id: str, epoch: SnapshotProcessMessage, snapshot: BaseModel):
+        """
+        Submits the given snapshot to the SNAP API and checks if the submission was successful.
+
+        Args:
+            project_id (str): The project ID.
+            epoch (SnapshotProcessMessage): The epoch message object.
+            snapshot (Pydantic Model): The snapshot data.
+
+        Returns:
+            bool: True if the submission was successful, False otherwise.
+        """
+        self.logger.debug(
+            'Submitting snapshot to SNAP API for project: {}', project_id,
+        )
+
+        snapshot_json = json.dumps(snapshot.dict(by_alias=True), sort_keys=True, separators=(',', ':'))
+        snapshot_bytes = snapshot_json.encode('utf-8')
+        snapshot_cid = cid_sha256_hash(snapshot_bytes)
+
+        request_, signature = self.generate_signature(snapshot_cid, epoch.epochId, project_id)
+        # submit to relayer
+        try:
+            response = await self._client.post(
+                url=urljoin("https://snapshotter-api.powerloom.io", settings.relayer.endpoint),
+                json={
+                    'slotId': settings.slot_id,
+                    'request': request_,
+                    'signature': '0x' + str(signature.hex()),
+                    'projectId': project_id,
+                    'epochId': epoch.epochId,
+                    'snapshotCid': snapshot_cid,
+                    'contractAddress': self.protocol_state_contract_address,
+                },
+            )
+
+            if response.status_code == 200:
+                self.logger.info(
+                    '✅ Event processed successfully: {}!', epoch,
+                )
+                self.logger.info("Node is good to go, you can keep the node running and it will start processing events!")
+            else:
+                self.logger.error(
+                    '❌ Event processing failed: {}', epoch,
+                )
+                self.logger.info("Please check your config and if issue persists please reach out to the team!")
+                sys.exit(1)
+        except Exception as e:
+            self.logger.error(
+                '❌ Event processing failed: {}', epoch,
+            )
+            self.logger.info("Please check your config and if issue persists please reach out to the team!")
+            sys.exit(1)
 
     async def _commit_payload(
             self,
@@ -318,7 +373,10 @@ class GenericAsyncWorker:
             name='PowerloomProtocolContract', version='0.1', chainId=self._anchor_chain_id,
             verifyingContract=self.protocol_state_contract_address,
         )
-        self._signer_private_key = PrivateKey.from_hex(settings.signer_private_key)
+        self._private_key = settings.signer_private_key
+        if self._private_key.startswith('0x'):
+            self._private_key = self._private_key[2:]
+        self._signer_private_key = PrivateKey.from_hex(self._private_key)
 
     def generate_signature(self, snapshot_cid, epoch_id, project_id):
         current_block = self._anchor_rpc_helper.get_current_node()['web3_client'].eth.block_number
