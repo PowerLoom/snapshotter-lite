@@ -103,6 +103,7 @@ class Settings(BaseModel):
     ipfs: IPFSConfig
     web3storage: Web3Storage
     anchor_chain_rpc: RPCConfigBase
+    node_version: str
 
 
 # Projects related models
