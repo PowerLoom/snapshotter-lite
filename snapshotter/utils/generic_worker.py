@@ -193,7 +193,7 @@ class GenericAsyncWorker:
         snapshot_bytes = snapshot_json.encode('utf-8')
         snapshot_cid = cid_sha256_hash(snapshot_bytes)
 
-        request_, signature = self.generate_signature(snapshot_cid, epoch.epochId, project_id)
+        request_, signature = self.generate_signature(snapshot_cid, epoch.epochId, f"{project_id}|{settings.node_version}")
         # submit to relayer
         try:
             response = await self._client.post(
@@ -202,7 +202,7 @@ class GenericAsyncWorker:
                     'slotId': settings.slot_id,
                     'request': request_,
                     'signature': '0x' + str(signature.hex()),
-                    'projectId': project_id,
+                    'projectId': f"{project_id}|{settings.node_version}",
                     'epochId': epoch.epochId,
                     'snapshotCid': snapshot_cid,
                     'contractAddress': self.protocol_state_contract_address,
