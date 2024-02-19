@@ -328,6 +328,7 @@ class ProcessorDistributor:
         elif type_ == 'DayStartedEvent':
             self._logger.info('Day started event received, setting active status to True')
             self._snapshotter_active = True
+            self._current_day += 1
 
         elif type_ == 'DailyTaskCompletedEvent':
             self._logger.info('Daily task completed event received, setting active status to False')
