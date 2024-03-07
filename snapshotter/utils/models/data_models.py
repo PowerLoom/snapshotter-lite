@@ -130,6 +130,10 @@ class SnapshotterPing(BaseModel):
     slotId: int
 
 
+class SnapshotterIdentifier(BaseModel):
+    instanceId: str
+
+
 class SnapshotterStatus(BaseModel):
     totalSuccessfulSubmissions: int = 0
     totalIncorrectSubmissions: int = 0
