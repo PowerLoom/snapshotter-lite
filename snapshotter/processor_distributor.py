@@ -1,5 +1,6 @@
 import asyncio
 import json
+import time
 from collections import defaultdict
 from typing import Union
 
@@ -10,6 +11,10 @@ from httpx import Limits
 from httpx import Timeout
 from web3 import Web3
 
+from snapshotter.utils.models.data_models import SnapshotterReportData
+from snapshotter.utils.models.data_models import SnapshotterReportState
+from snapshotter.utils.models.data_models import SnapshotterIssue
+from snapshotter.utils.models.data_models import SnapshotterStatus
 from snapshotter.settings.config import projects_config
 from snapshotter.settings.config import settings
 from snapshotter.utils.data_utils import get_snapshot_submision_window
@@ -27,6 +32,7 @@ from snapshotter.utils.models.message_models import SnapshotProcessMessage
 from snapshotter.utils.rpc import RpcHelper
 from snapshotter.utils.snapshot_worker import SnapshotAsyncWorker
 from snapshotter.utils.snapshot_utils import get_eth_price_usd
+from snapshotter.utils.callback_helpers import send_failure_notifications_async
 
 class ProcessorDistributor:
     _anchor_rpc_helper: RpcHelper
@@ -238,11 +244,38 @@ class ProcessorDistributor:
             epochId=message.epochId,
             day=self._current_day,
         )
-        eth_price_dict = await get_eth_price_usd(
-            message.begin,
-            message.end,
-            self._rpc_helper,
-        )
+
+        try:
+            eth_price_dict = await get_eth_price_usd(
+                message.begin,
+                message.end,
+                self._rpc_helper,
+            )
+        except Exception as e:
+            self._logger.error(
+                'Exception in getting eth price: {}',
+                e,
+            )
+            notification_message = SnapshotterReportData(
+                snapshotterIssue=SnapshotterIssue(
+                    instanceID=settings.instance_id,
+                    issueType=SnapshotterReportState.MISSED_SNAPSHOT.value,
+                    projectID='ETH_PRICE_LOAD',
+                    epochId=str(message.epochId),
+                    timeOfReporting=str(time.time()),
+                    extra=json.dumps({'issueDetails': f'Error : {e}'}),
+                ),
+                snapshotterStatus=SnapshotterStatus(
+                    totalMissedSubmissions=-1,
+                    consecutiveMissedSubmissions=-1,
+                    projects=[],
+                ),
+            )
+            await send_failure_notifications_async(
+                client=self._client, message=notification_message,
+            )
+            return
+
         for project_type, _ in self._project_type_config_mapping.items():
             # release for snapshotting
             asyncio.ensure_future(
