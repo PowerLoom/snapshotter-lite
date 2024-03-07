@@ -134,6 +134,7 @@ class SnapshotterStatus(BaseModel):
     totalSuccessfulSubmissions: int = 0
     totalIncorrectSubmissions: int = 0
     totalMissedSubmissions: int = 0
+    consecutiveMissedSubmissions: int = 0
     projects: List[ProjectStatus]
 
 
@@ -186,3 +187,29 @@ class UnfinalizedSnapshot(BaseModel):
 class TaskStatusRequest(BaseModel):
     task_type: str
     wallet_address: str
+
+
+class SnapshotterReportData(BaseModel):
+    snapshotterIssue: SnapshotterIssue
+    snapshotterStatus: SnapshotterStatus
+
+
+class TelegramSnapshotterReportMessage(BaseModel):
+    chatId: int
+    slotId: int
+    issue: SnapshotterIssue
+    status: SnapshotterStatus
+
+
+class EpochProcessingIssue(BaseModel):
+    instanceID: str
+    issueType: str
+    timeOfReporting: str
+    extra: Optional[str] = ''
+
+
+class TelegramEpochProcessingReportMessage(BaseModel):
+    chatId: int
+    slotId: int
+    issue: EpochProcessingIssue
+
