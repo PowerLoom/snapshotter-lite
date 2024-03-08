@@ -1,5 +1,6 @@
 import asyncio
 import json
+import time
 from collections import defaultdict
 from typing import Union
 
@@ -9,12 +10,10 @@ from httpx import AsyncHTTPTransport
 from httpx import Limits
 from httpx import Timeout
 from web3 import Web3
-import time
 
-from snapshotter.utils.models.data_models import SnapshotterReportState
-from snapshotter.utils.models.data_models import SnapshotterIssue
 from snapshotter.settings.config import projects_config
 from snapshotter.settings.config import settings
+from snapshotter.utils.callback_helpers import send_failure_notifications_async
 from snapshotter.utils.data_utils import get_snapshot_submision_window
 from snapshotter.utils.data_utils import get_source_chain_epoch_size
 from snapshotter.utils.data_utils import get_source_chain_id
@@ -24,13 +23,17 @@ from snapshotter.utils.models.data_models import DailyTaskCompletedEvent
 from snapshotter.utils.models.data_models import DayStartedEvent
 from snapshotter.utils.models.data_models import EpochReleasedEvent
 from snapshotter.utils.models.data_models import SnapshotFinalizedEvent
+from snapshotter.utils.models.data_models import SnapshotterIssue
+from snapshotter.utils.models.data_models import SnapshotterReportData
+from snapshotter.utils.models.data_models import SnapshotterReportState
+from snapshotter.utils.models.data_models import SnapshotterStatus
 from snapshotter.utils.models.data_models import SnapshottersUpdatedEvent
 from snapshotter.utils.models.message_models import EpochBase
 from snapshotter.utils.models.message_models import SnapshotProcessMessage
 from snapshotter.utils.rpc import RpcHelper
-from snapshotter.utils.snapshot_worker import SnapshotAsyncWorker
 from snapshotter.utils.snapshot_utils import get_eth_price_usd
-from snapshotter.utils.callback_helpers import send_failure_notifications_async
+from snapshotter.utils.snapshot_worker import SnapshotAsyncWorker
+
 
 class ProcessorDistributor:
     _anchor_rpc_helper: RpcHelper
@@ -143,7 +146,9 @@ class ProcessorDistributor:
                 self._slots_per_day = slots_per_day
 
             try:
-                snapshotter_address = self._protocol_state_contract.functions.slotSnapshotterMapping(settings.slot_id).call()
+                snapshotter_address = self._protocol_state_contract.functions.slotSnapshotterMapping(
+                    settings.slot_id,
+                ).call()
                 if snapshotter_address != to_checksum_address(settings.instance_id):
                     self._logger.error('Signer Account is not the one configured in slot, exiting!')
                     exit(0)
@@ -236,13 +241,20 @@ class ProcessorDistributor:
                 'Exception in getting eth price: {}',
                 e,
             )
-            notification_message = SnapshotterIssue(
-                instanceID=settings.instance_id,
-                issueType=SnapshotterReportState.MISSED_SNAPSHOT.value,
-                projectID='ETH_PRICE_LOAD',
-                epochId=str(message.epochId),
-                timeOfReporting=str(time.time()),
-                extra=json.dumps({'issueDetails': f'Error : {e}'}),
+            notification_message = SnapshotterReportData(
+                snapshotterIssue=SnapshotterIssue(
+                    instanceID=settings.instance_id,
+                    issueType=SnapshotterReportState.MISSED_SNAPSHOT.value,
+                    projectID='ETH_PRICE_LOAD',
+                    epochId=str(message.epochId),
+                    timeOfReporting=str(time.time()),
+                    extra=json.dumps({'issueDetails': f'Error : {e}'}),
+                ),
+                snapshotterStatus=SnapshotterStatus(
+                    totalMissedSubmissions=-1,
+                    consecutiveMissedSubmissions=-1,
+                    projects=[],
+                ),
             )
             await send_failure_notifications_async(
                 client=self._client, message=notification_message,
@@ -253,7 +265,7 @@ class ProcessorDistributor:
             # release for snapshotting
             asyncio.ensure_future(
                 self._distribute_callbacks_snapshotting(
-                    project_type, epoch, eth_price_dict
+                    project_type, epoch, eth_price_dict,
                 ),
             )
 

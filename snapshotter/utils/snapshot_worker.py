@@ -13,6 +13,7 @@ from snapshotter.utils.data_utils import get_snapshot_submision_window
 from snapshotter.utils.generic_worker import GenericAsyncWorker
 from snapshotter.utils.models.data_models import SnapshotterIssue
 from snapshotter.utils.models.data_models import SnapshotterReportState
+from snapshotter.utils.models.data_models import SnapshotterReportData
 from snapshotter.utils.models.message_models import SnapshotProcessMessage
 import sys
 
@@ -97,13 +98,19 @@ class SnapshotAsyncWorker(GenericAsyncWorker):
                 'sending failure notifications', msg_obj, e,
             )
 
-            notification_message = SnapshotterIssue(
-                instanceID=settings.instance_id,
-                issueType=SnapshotterReportState.MISSED_SNAPSHOT.value,
-                projectID=f'{task_type}:{settings.namespace}',
-                epochId=str(msg_obj.epochId),
-                timeOfReporting=str(time.time()),
-                extra=json.dumps({'issueDetails': f'Error : {e}'}),
+            self._status.totalMissedSubmissions += 1
+            self._status.consecutiveMissedSubmissions += 1
+
+            notification_message = SnapshotterReportData(
+                snapshotterIssue=SnapshotterIssue(
+                    instanceID=settings.instance_id,
+                    issueType=SnapshotterReportState.MISSED_SNAPSHOT.value,
+                    projectID=f'{task_type}:{settings.namespace}',
+                    epochId=str(msg_obj.epochId),
+                    timeOfReporting=str(time.time()),
+                    extra=json.dumps({'issueDetails': f'Error : {e}'}),
+                ),
+                snapshotterStatus=self._status,
             )
 
             await send_failure_notifications_async(

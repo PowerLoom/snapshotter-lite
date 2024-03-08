@@ -26,6 +26,8 @@ services:
       - POWERLOOM_REPORTING_URL=$POWERLOOM_REPORTING_URL
       - WEB3_STORAGE_TOKEN=$WEB3_STORAGE_TOKEN
       - NAMESPACE=$NAMESPACE
+      - TELEGRAM_REPORTING_URL=$TELEGRAM_REPORTING_URL
+      - TELEGRAM_CHAT_ID=$TELEGRAM_CHAT_ID
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8002/health"]
       interval: 10s

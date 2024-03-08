@@ -34,6 +34,13 @@ if [ ! -f .env ]; then
         sed -i'.backup' "s#<slot-id>#$SLOT_ID#" .env
     fi
 
+    # ask user for TELEGRAM_CHAT_ID and replace it in .env
+    if [ -z "$TELEGRAM_CHAT_ID" ]; then
+        echo "Enter Your TELEGRAM_CHAT_ID (Optional, leave blank to skip.): ";
+        read TELEGRAM_CHAT_ID;
+        sed -i'.backup' "s#<telegram-chat-id>#$TELEGRAM_CHAT_ID#" .env
+    fi
+
 fi
 
 source .env
@@ -88,7 +95,15 @@ if [ "$SLACK_REPORTING_URL" ]; then
 fi
 
 if [ "$POWERLOOM_REPORTING_URL" ]; then
-    echo "Found SLACK_REPORTING_URL ${POWERLOOM_REPORTING_URL}";
+    echo "Found POWERLOOM_REPORTING_URL ${POWERLOOM_REPORTING_URL}";
+fi
+
+if [ "$TELEGRAM_REPORTING_URL" ]; then
+    echo "Found TELEGRAM_REPORTING_URL ${TELEGRAM_REPORTING_URL}";
+fi
+
+if [ "$TELEGRAM_CHAT_ID" ]; then
+    echo "Found TELEGRAM_CHAT_ID ${TELEGRAM_CHAT_ID}";
 fi
 
 # setting up git submodules
