@@ -79,7 +79,7 @@ class EventDetectorProcess(multiprocessing.Process):
 
         # event EpochReleased(uint256 indexed epochId, uint256 begin, uint256 end, uint256 timestamp);
         # event DayStartedEvent(uint256 dayId, uint256 timestamp);
-        # event DailyTaskCompletedEvent(address snapshotterAddress, uint256 dayId, uint256 timestamp);
+        # event DailyTaskCompletedEvent(address snapshotterAddress, uint256 slotId, uint256 dayId, uint256 timestamp);
 
         EVENTS_ABI = {
             'EpochReleased': self.contract.events.EpochReleased._get_event_abi(),
@@ -90,7 +90,7 @@ class EventDetectorProcess(multiprocessing.Process):
         EVENT_SIGS = {
             'EpochReleased': 'EpochReleased(uint256,uint256,uint256,uint256)',
             'DayStartedEvent': 'DayStartedEvent(uint256,uint256)',
-            'DailyTaskCompletedEvent': 'DailyTaskCompletedEvent(address,uint256,uint256)',
+            'DailyTaskCompletedEvent': 'DailyTaskCompletedEvent(address,uint256,uint256,uint256)',
 
         }
 
@@ -180,7 +180,8 @@ class EventDetectorProcess(multiprocessing.Process):
                 )
                 events.append((log.event, event))
             elif log.event == 'DailyTaskCompletedEvent':
-                if log.args.snapshotterAddress == to_checksum_address(settings.instance_id):
+                if log.args.snapshotterAddress == to_checksum_address(settings.instance_id) and\
+                        log.args.slotId == settings.slot_id:
                     event = DailyTaskCompletedEvent(
                         dayId=log.args.dayId,
                         timestamp=log.args.timestamp,
