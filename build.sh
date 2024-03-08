@@ -109,7 +109,7 @@ if ! [ -x "$(command -v docker-compose)" ]; then
         docker compose up --no-deps -V --abort-on-container-exit
     fi
 else
-    docker compose pull;
+    docker-compose pull;
     if [ "$IPFS_URL" ]; then
         docker-compose --profile ipfs up -V --abort-on-container-exit
     else
