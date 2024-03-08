@@ -9,7 +9,10 @@ from httpx import AsyncHTTPTransport
 from httpx import Limits
 from httpx import Timeout
 from web3 import Web3
+import time
 
+from snapshotter.utils.models.data_models import SnapshotterReportState
+from snapshotter.utils.models.data_models import SnapshotterIssue
 from snapshotter.settings.config import projects_config
 from snapshotter.settings.config import settings
 from snapshotter.utils.data_utils import get_snapshot_submision_window
@@ -27,6 +30,7 @@ from snapshotter.utils.models.message_models import SnapshotProcessMessage
 from snapshotter.utils.rpc import RpcHelper
 from snapshotter.utils.snapshot_worker import SnapshotAsyncWorker
 from snapshotter.utils.snapshot_utils import get_eth_price_usd
+from snapshotter.utils.callback_helpers import send_failure_notifications_async
 
 class ProcessorDistributor:
     _anchor_rpc_helper: RpcHelper
@@ -151,24 +155,6 @@ class ProcessorDistributor:
                 exit(0)
 
             try:
-                snapshotter_slot = self._protocol_state_contract.functions.getSnapshotterTimeSlot(
-                    settings.slot_id,
-                ).call()
-                if snapshotter_slot == 0:
-                    self._logger.error('Snapshotter slot is not set, exiting')
-                    exit(0)
-                else:
-                    self._logger.info('Snapshotter slot is set to {}', snapshotter_slot)
-                    self._snapshotter_slot = snapshotter_slot
-            except Exception as e:
-                self._logger.error(
-                    'Exception in querying protocol state for time slot {}',
-                    e,
-                )
-                self._logger.error('Unable to get snapshotter slot, exiting')
-                exit(1)
-
-            try:
                 self._current_day = self._protocol_state_contract.functions.dayCounter().call()
 
                 task_completion_status = self._protocol_state_contract.functions.checkSlotTaskStatusForDay(
@@ -238,11 +224,31 @@ class ProcessorDistributor:
             epochId=message.epochId,
             day=self._current_day,
         )
-        eth_price_dict = await get_eth_price_usd(
-            message.begin,
-            message.end,
-            self._rpc_helper,
-        )
+
+        try:
+            eth_price_dict = await get_eth_price_usd(
+                message.begin,
+                message.end,
+                self._rpc_helper,
+            )
+        except Exception as e:
+            self._logger.error(
+                'Exception in getting eth price: {}',
+                e,
+            )
+            notification_message = SnapshotterIssue(
+                instanceID=settings.instance_id,
+                issueType=SnapshotterReportState.MISSED_SNAPSHOT.value,
+                projectID='ETH_PRICE_LOAD',
+                epochId=str(message.epochId),
+                timeOfReporting=str(time.time()),
+                extra=json.dumps({'issueDetails': f'Error : {e}'}),
+            )
+            await send_failure_notifications_async(
+                client=self._client, message=notification_message,
+            )
+            return
+
         for project_type, _ in self._project_type_config_mapping.items():
             # release for snapshotting
             asyncio.ensure_future(
@@ -270,36 +276,9 @@ class ProcessorDistributor:
             day=epoch.day,
         )
 
-        commit_payload = self._is_allowed_for_epoch(epoch)
-
         asyncio.ensure_future(
-            self.snapshot_worker.process_task(process_unit, project_type, commit_payload, eth_price_dict),
+            self.snapshot_worker.process_task(process_unit, project_type, eth_price_dict),
         )
-
-    def _is_allowed_for_epoch(self, epoch: EpochBase):
-        """
-        Checks if the snapshotter should proceed with snapshotting for the given epoch.
-
-        Args:
-            epoch (EpochBase): The epoch to check.
-
-        Returns:
-            bool: True if the epoch falls in the snapshotter's slot, False otherwise.
-        """
-        if not self._snapshotter_active:
-            return False
-
-        if epoch.epochId == 0:
-            return False
-
-        N = self._slots_per_day
-        self._logger.info('Slots per day: {}', N)
-        epochs_in_a_day = 86400 // (self._epoch_size * self._source_chain_block_time)
-        self._logger.info('Epochs in a day: {}', epochs_in_a_day)
-
-        if (epoch.epochId % epochs_in_a_day) // (epochs_in_a_day // N) == self._snapshotter_slot - 1:
-            return True
-        return False
 
     async def process_event(
         self, type_: str, event: Union[
