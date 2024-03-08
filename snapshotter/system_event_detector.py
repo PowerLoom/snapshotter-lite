@@ -1,16 +1,19 @@
-import json
 import asyncio
+import json
 import multiprocessing
 import resource
 import signal
+import sys
 import time
 from signal import SIGINT
 from signal import SIGQUIT
 from signal import SIGTERM
+from urllib.parse import urljoin
+
 import httpx
 from eth_utils.address import to_checksum_address
 from web3 import Web3
-import sys
+
 from snapshotter.processor_distributor import ProcessorDistributor
 from snapshotter.settings.config import settings
 from snapshotter.utils.callback_helpers import send_epoch_processing_failure_notification_sync
@@ -19,13 +22,12 @@ from snapshotter.utils.exceptions import GenericExitOnSignal
 from snapshotter.utils.file_utils import read_json_file
 from snapshotter.utils.models.data_models import DailyTaskCompletedEvent
 from snapshotter.utils.models.data_models import DayStartedEvent
-from snapshotter.utils.models.data_models import EpochReleasedEvent
 from snapshotter.utils.models.data_models import EpochProcessingIssue
+from snapshotter.utils.models.data_models import EpochReleasedEvent
+from snapshotter.utils.models.data_models import SnapshotterPing
 from snapshotter.utils.models.data_models import SnapshotterReportState
 from snapshotter.utils.rpc import get_event_sig_and_abi
 from snapshotter.utils.rpc import RpcHelper
-from urllib.parse import urljoin
-from snapshotter.utils.models.data_models import SnapshotterPing
 
 
 class EventDetectorProcess(multiprocessing.Process):
@@ -84,7 +86,7 @@ class EventDetectorProcess(multiprocessing.Process):
 
         # event EpochReleased(uint256 indexed epochId, uint256 begin, uint256 end, uint256 timestamp);
         # event DayStartedEvent(uint256 dayId, uint256 timestamp);
-        # event DailyTaskCompletedEvent(address snapshotterAddress, uint256 dayId, uint256 timestamp);
+        # event DailyTaskCompletedEvent(address snapshotterAddress, uint256 slotId, uint256 dayId, uint256 timestamp);
 
         EVENTS_ABI = {
             'EpochReleased': self.contract.events.EpochReleased._get_event_abi(),
@@ -95,7 +97,7 @@ class EventDetectorProcess(multiprocessing.Process):
         EVENT_SIGS = {
             'EpochReleased': 'EpochReleased(uint256,uint256,uint256,uint256)',
             'DayStartedEvent': 'DayStartedEvent(uint256,uint256)',
-            'DailyTaskCompletedEvent': 'DailyTaskCompletedEvent(address,uint256,uint256)',
+            'DailyTaskCompletedEvent': 'DailyTaskCompletedEvent(address,uint256,uint256,uint256)',
 
         }
 
@@ -128,13 +130,13 @@ class EventDetectorProcess(multiprocessing.Process):
                 'Processing dummy event: {}', event,
             )
             await self.processor_distributor.process_event(
-                "EpochReleased", event,
+                'EpochReleased', event,
             )
         except Exception as e:
             self._logger.error(
                 '❌ Dummy Event processing failed! Error: {}', e,
             )
-            self._logger.info("Please check your config and if issue persists please reach out to the team!")
+            self._logger.info('Please check your config and if issue persists please reach out to the team!')
             sys.exit(1)
 
     async def get_events(self, from_block: int, to_block: int):
@@ -185,7 +187,8 @@ class EventDetectorProcess(multiprocessing.Process):
                 )
                 events.append((log.event, event))
             elif log.event == 'DailyTaskCompletedEvent':
-                if log.args.snapshotterAddress == to_checksum_address(settings.instance_id):
+                if log.args.snapshotterAddress == to_checksum_address(settings.instance_id) and\
+                        log.args.slotId == settings.slot_id:
                     event = DailyTaskCompletedEvent(
                         dayId=log.args.dayId,
                         timestamp=log.args.timestamp,
@@ -257,11 +260,11 @@ class EventDetectorProcess(multiprocessing.Process):
                         instanceID=settings.instance_id,
                         issueType=SnapshotterReportState.UNHEALTHY_EPOCH_PROCESSING.value,
                         timeOfReporting=str(time.time()),
-                        extra=json.dumps({'issueDetails': f'Error : {e}'})
+                        extra=json.dumps({'issueDetails': f'Error : {e}'}),
                     )
                     send_epoch_processing_failure_notification_sync(
-                        client=self._httpx_client, 
-                        message=notification_message
+                        client=self._httpx_client,
+                        message=notification_message,
                     )
 
                 await asyncio.sleep(settings.rpc.polling_interval)
@@ -306,11 +309,11 @@ class EventDetectorProcess(multiprocessing.Process):
                         instanceID=settings.instance_id,
                         issueType=SnapshotterReportState.UNHEALTHY_EPOCH_PROCESSING.value,
                         timeOfReporting=str(time.time()),
-                        extra=json.dumps({'issueDetails': f'Error : {e}'})
+                        extra=json.dumps({'issueDetails': f'Error : {e}'}),
                     )
                     send_epoch_processing_failure_notification_sync(
-                        client=self._httpx_client, 
-                        message=notification_message
+                        client=self._httpx_client,
+                        message=notification_message,
                     )
 
                 await asyncio.sleep(settings.rpc.polling_interval)
