@@ -60,7 +60,7 @@ class SnapshotAsyncWorker(GenericAsyncWorker):
                 project_id = f'{task_type}:{data_source.lower()}:{settings.namespace}'
         return project_id
 
-    async def _process(self, msg_obj: SnapshotProcessMessage, task_type: str, eth_price_dict: dict):
+    async def _process(self, msg_obj: SnapshotProcessMessage, task_type: str):
         """
         Processes the given SnapshotProcessMessage object in bulk mode.
 
@@ -83,7 +83,6 @@ class SnapshotAsyncWorker(GenericAsyncWorker):
                 anchor_rpc_helper=self._anchor_rpc_helper,
                 ipfs_reader=self._ipfs_reader_client,
                 protocol_state_contract=self.protocol_state_contract,
-                eth_price_dict=eth_price_dict,
             )
 
             if not snapshots:
@@ -152,7 +151,7 @@ class SnapshotAsyncWorker(GenericAsyncWorker):
                         storage_flag=settings.web3storage.upload_snapshots,
                     )
 
-    async def process_task(self, msg_obj: SnapshotProcessMessage, task_type: str, eth_price_dict: dict):
+    async def process_task(self, msg_obj: SnapshotProcessMessage, task_type: str):
         """
         Process a SnapshotProcessMessage object for a given task type.
 
@@ -186,7 +185,7 @@ class SnapshotAsyncWorker(GenericAsyncWorker):
             task_type, msg_obj,
         )
 
-        await self._process(msg_obj=msg_obj, task_type=task_type, eth_price_dict=eth_price_dict)
+        await self._process(msg_obj=msg_obj, task_type=task_type)
 
     async def _init_project_calculation_mapping(self):
         """

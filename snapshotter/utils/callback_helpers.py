@@ -138,6 +138,5 @@ class GenericProcessor(ABC):
         anchor_rpc_helper: RpcHelper,
         ipfs_reader: AsyncIPFSClient,
         protocol_state_contract,
-        eth_price_dict: dict,
     ):
         pass

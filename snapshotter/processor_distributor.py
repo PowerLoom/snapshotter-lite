@@ -225,39 +225,15 @@ class ProcessorDistributor:
             day=self._current_day,
         )
 
-        try:
-            eth_price_dict = await get_eth_price_usd(
-                message.begin,
-                message.end,
-                self._rpc_helper,
-            )
-        except Exception as e:
-            self._logger.error(
-                'Exception in getting eth price: {}',
-                e,
-            )
-            notification_message = SnapshotterIssue(
-                instanceID=settings.instance_id,
-                issueType=SnapshotterReportState.MISSED_SNAPSHOT.value,
-                projectID='ETH_PRICE_LOAD',
-                epochId=str(message.epochId),
-                timeOfReporting=str(time.time()),
-                extra=json.dumps({'issueDetails': f'Error : {e}'}),
-            )
-            await send_failure_notifications_async(
-                client=self._client, message=notification_message,
-            )
-            return
-
         for project_type, _ in self._project_type_config_mapping.items():
             # release for snapshotting
             asyncio.ensure_future(
                 self._distribute_callbacks_snapshotting(
-                    project_type, epoch, eth_price_dict
+                    project_type, epoch,
                 ),
             )
 
-    async def _distribute_callbacks_snapshotting(self, project_type: str, epoch: EpochBase, eth_price_dict: dict):
+    async def _distribute_callbacks_snapshotting(self, project_type: str, epoch: EpochBase):
         """
         Distributes callbacks for snapshotting to the appropriate snapshotters based on the project type and epoch.
 
@@ -277,7 +253,7 @@ class ProcessorDistributor:
         )
 
         asyncio.ensure_future(
-            self.snapshot_worker.process_task(process_unit, project_type, eth_price_dict),
+            self.snapshot_worker.process_task(process_unit, project_type),
         )
 
     async def process_event(
