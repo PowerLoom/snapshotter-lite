@@ -9,10 +9,8 @@ from httpx import AsyncHTTPTransport
 from httpx import Limits
 from httpx import Timeout
 from web3 import Web3
-import time
 
-from snapshotter.utils.models.data_models import SnapshotterReportState
-from snapshotter.utils.models.data_models import SnapshotterIssue
+
 from snapshotter.settings.config import projects_config
 from snapshotter.settings.config import settings
 from snapshotter.utils.data_utils import get_snapshot_submision_window
@@ -29,8 +27,6 @@ from snapshotter.utils.models.message_models import EpochBase
 from snapshotter.utils.models.message_models import SnapshotProcessMessage
 from snapshotter.utils.rpc import RpcHelper
 from snapshotter.utils.snapshot_worker import SnapshotAsyncWorker
-from snapshotter.utils.snapshot_utils import get_eth_price_usd
-from snapshotter.utils.callback_helpers import send_failure_notifications_async
 
 class ProcessorDistributor:
     _anchor_rpc_helper: RpcHelper

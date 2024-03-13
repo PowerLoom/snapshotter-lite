@@ -97,7 +97,6 @@ class Settings(BaseModel):
     reporting: ReportingConfig
     logs: Logs
     projects_config_path: str
-    pair_contract_abi: str
     protocol_state: EventContract
     relayer: Relayer
     ipfs: IPFSConfig
