@@ -19,8 +19,8 @@
 - [For Contributors](#for-contributors)
 - [Case Studies](#case-studies)
   - [1. Pooler: Case study and extending this implementation](#1-pooler-case-study-and-extending-this-implementation)
-    - [Extending pooler with a Uniswap v2 data point](#extending-pooler-with-a-uniswap-v2-data-point)
-      - [Step 1. Review: Base snapshot extraction logic for trade information](#step-1-review-base-snapshot-extraction-logic-for-trade-information)
+    - [Extending pooler](#extending-pooler)
+      - [Step 1. Review: Base snapshot extraction logic for lending information](#step-1-review-base-snapshot-extraction-logic-for-lending-information)
 - [Find us](#find-us)
 
 ## Overview
@@ -144,7 +144,7 @@ Extracting data from the blockchain state and generating the snapshot can be a c
 
 This component is one of the most important and allows you to access the finalized protocol state on the smart contract running on the anchor chain. Find it in [`core_api.py`](snapshotter/core_api.py).
 
-The [pooler-frontend](https://github.com/powerloom/pooler-frontend) that serves the Uniswap v2 dashboards hosted by the PowerLoom foundation on locations like https://uniswapv2.powerloom.io/ is a great example of a frontend specific web application that makes use of this API service.
+The [pooler-frontend](https://github.com/PowerLoom/pooler-frontend/tree/aave) that serves the Aave v3 dashboards hosted by the PowerLoom foundation on locations like https://aave-v3.powerloom.io/ is a great example of a frontend specific web application that makes use of this API service.
 
 Among many things, the core API allows you to **access the finalized CID as well as its contents at a given epoch ID for a project**.
 
@@ -158,30 +158,30 @@ The first endpoint in `GET /last_finalized_epoch/{project_id}` returns the last 
 
 These endpoints along with the combination of a bunch of other helper endpoints present in `Core API` can be used to build powerful Dapps and dashboards.
 
-You can observe the way it is [used in `pooler-frontend` repo](https://github.com/PowerLoom/pooler-frontend/blob/361268d27584520450bf33353f7519982d638f8a/src/routes/index.svelte#L85) to fetch the dataset for the aggregate projects of top pairs trade volume and token reserves summary:
+You can observe the way it is [used in `pooler-frontend` repo](https://github.com/PowerLoom/pooler-frontend/blob/6182c0195abfca0d16ab9a1ce8e7a3577e44a234/src/routes/assets.svelte#L57) to fetch the dataset for the top assets by market share summary:
 
 
 ```javascript
 try {
-      response = await axios.get(API_PREFIX+`/data/${epochInfo.epochId}/${top_pairs_7d_project_id}/`);
-      console.log('got 7d top pairs', response.data);
+      console.log(API_PREFIX+`/data/${epochInfo.epochId}/${assets_project_id}/`)
+      response = await axios.get(API_PREFIX+`/data/${epochInfo.epochId}/${assets_project_id}/`);
+      console.log('got assets', response.data);
       if (response.data) {
-        for (let pair of response.data.pairs) {
-          pairsData7d[pair.name] = pair;
-        }
+        assetsData = response.data;
       } else {
         throw new Error(JSON.stringify(response.data));
       }
     }
     catch (e){
-      console.error('7d top pairs', e);
+      console.error('assets', e);
     }
 ```
 
 
 ## Setup
 There are multiple ways to set up the Snapshotter Lite Node. You can either use the Docker image or run it directly on your local machine.
-However, it is recommended to use the Docker image as it is the easiest and most reliable way to set up the Snapshotter Lite Node.
+However, it is recommended to use the Docker image as it is the easiest and most reliable way to set up the Snapshotter Lite Node. This branch (Aave V3) is
+currently in development. Instructions for code contributors are given below.
 
 ### Using Docker
 1. Install Docker on your machine. You can find the installation instructions for your operating system on the [official Docker website](https://docs.docker.com/get-docker/).
@@ -197,18 +197,19 @@ However, it is recommended to use the Docker image as it is the easiest and most
    cd powerloom
    ```
 
-4. Run `build.sh` to start the snapshotter lite node:
+4. Use git to checkout the `feat/aave-v3` branch in the `powerloom` directory:
    ```bash
-   ./build.sh
+   git checkout feat/aave-v3
    ```
-   If you're a developer and want to play around with the code, instead of running `build.sh`, you can run the following command to start the snapshotter lite node:
+
+5. Run `build.sh` to start the snapshotter lite node:
    ```bash
    ./build-dev.sh
    ```
 
-5. When prompted, enter `$SOURCE_RPC_URL`, `SIGNER_ACCOUNT_ADDRESS`, `SIGNER_ACCOUNT_PRIVATE_KEY` (only required for the first time), this will create a `.env` file in the root directory of the project.
+6. When prompted, enter `$SOURCE_RPC_URL`, `SIGNER_ACCOUNT_ADDRESS`, `SIGNER_ACCOUNT_PRIVATE_KEY`, and the `SLOT_ID` of your minted NFT (only required for the first time), this will create a `.env` file in the root directory of the project.
 
-6. This should start your snapshotter node and you should see something like this in your terminal logs
+7. This should start your snapshotter node and you should see something like this in your terminal logs
   ```bash
   snapshotter-lite_1  | 1|snapshotter-lite  | February 5, 2024 > 15:10:17 | INFO | Current block: 2208370| {'module': 'EventDetector'}
   snapshotter-lite_1  | 1|snapshotter-lite  | February 5, 2024 > 15:10:18 | DEBUG | Set source chain block time to 12.0| {'module': 'ProcessDistributor'}
@@ -218,9 +219,9 @@ However, it is recommended to use the Docker image as it is the easiest and most
   snapshotter-lite_1  | 1|snapshotter-lite  | February 5, 2024 > 15:10:21 | INFO | Snapshotter active: True| {'module': 'ProcessDistributor'}
   snapshotter-lite_1  | 0|core-api          | February 5, 2024 > 15:10:22 | INFO | 127.0.0.1:59776 - "GET /health HTTP/1.1" 200 | {} 
   ```
-7. To stop the node, you can press `Ctrl+C` in the terminal where the node is running or `docker-compose down` in a new terminal window from the project directory.
+8. To stop the node, you can press `Ctrl+C` in the terminal where the node is running or `docker-compose down` in a new terminal window from the project directory.
 
-NOTE: It is recommended to run `build.sh` in a screen or tmux session so that the process continues running even after you close the terminal.
+NOTE: It is recommended to run `build-dev.sh` in a screen or tmux session so that the process continues running even after you close the terminal.
 
 ### Without Docker
 If you want to run the Snapshotter Lite Node without Docker, you need to make sure that you have Git, and Python 3.10.13 installed on your machine. You can find the installation instructions for your operating system on the [official Python website](https://www.python.org/downloads/).
@@ -236,15 +237,20 @@ If you want to run the Snapshotter Lite Node without Docker, you need to make su
    cd powerloom
    ```
 
-3. Run `init.sh` to start the snapshotter lite node:
+3. Use git to checkout the `feat/aave-v3` branch in the `powerloom` directory:
+   ```bash
+   git checkout feat/aave-v3
+   ```
+
+4. Run `init.sh` to start the snapshotter lite node:
    ```bash
    ./init.sh
    ```
 
-4. When prompted, enter `$SOURCE_RPC_URL`, `SIGNER_ACCOUNT_ADDRESS`, `SIGNER_ACCOUNT_PRIVATE_KEY` (only required for the first time), this will create a `.env` file in the root directory of the project.
+5. When prompted, enter `$SOURCE_RPC_URL`, `SIGNER_ACCOUNT_ADDRESS`, `SIGNER_ACCOUNT_PRIVATE_KEY`, and the `SLOT_ID` of your minted NFT (only required for the first time), this will create a `.env` file in the root directory of the project.
 
-5. Your node should start in background and you should start seeing logs in your terminal.
-6. To stop the node, you can run `pkill -f snapshotter` in a new terminal window.
+6. Your node should start in background and you should start seeing logs in your terminal.
+7. To stop the node, you can run `pkill -f snapshotter` in a new terminal window.
   
 ## Monitoring and Debugging
 
@@ -265,74 +271,88 @@ Now, whenever you commit anything, it'll automatically check the files you've ch
 
 ### 1. Pooler: Case study and extending this implementation
 
-Pooler is a Uniswap specific implementation of what is known as a 'snapshotter' in the PowerLoom Protocol ecosystem. It synchronizes with other snapshotter peers over a smart contract running on the present version of the PowerLoom Protocol testnet. It follows an architecture that is driven by state transitions which makes it easy to understand and modify. This present release ultimately provide access to rich aggregates that can power a Uniswap v2 dashboard with the following data points:
+An extension of the [Uniswap V2 Pooler](https://github.com/PowerLoom/snapshotter-lite?tab=readme-ov-file#overview), this branch contains an Aave specific implementation of what is known as a 'snapshotter' in the PowerLoom Protocol ecosystem. It synchronizes with other snapshotter peers over a smart contract running on the present version of the PowerLoom Protocol testnet. It follows an architecture that is driven by state transitions which makes it easy to understand and modify. This snapshotter provides access to core data points for each Aave loan asset, along with aggregated 'snapshots' built using this base data. These 'snapshots' are then used to display important lending metrics on the [Aave V3 Dashboard](https://aave-v3.powerloom.io/). The following data points are available:
 
-- Total Value Locked (TVL)
-- Trade Volume, Liquidity reserves, Fees earned
-    - grouped by
-        - Pair contracts
-        - Individual tokens participating in pair contract
+- Total supply and debt amounts for individual assets
+- Total market metrics for all assets
+  - aggregated over time periods
+      - 24 hours
+- Volume by Action (Supply, Borrow, Repay, etc.) for each asset
     - aggregated over time periods
-        - 24 hours
-        - 7 days
-- Transactions containing `Swap`, `Mint`, and `Burn` events
+      - 24 hours
+- Lending and Borrowing interest rate APYs
+    - aggregated over time periods
+      - 6 hours
+      - 24 hours
+- Transactions containing `Supply`, `Borrow`, `Withdraw`, `Repay`, and `LiquidationCall` events
 
-#### Extending pooler with a Uniswap v2 data point
+#### Extending pooler
 
-In this section, let us take a look at the data composition abilities of Pooler to build on the base snapshot being built that captures information on Uniswap trades.
+In this section, let us take a look at the data composition abilities of Pooler to build on the base snapshot being built that captures information on Aave lending activities.
 
-##### Step 1. Review: Base snapshot extraction logic for trade information
+##### Step 1. Review: Base snapshot extraction logic for lending information
 
 Required reading:
 * [Snapshot Generation](#snapshot-generation) and
 
-As you can notice in [`config/projects.example.json`](https://github.com/PowerLoom/snapshotter-configs/blob/f46cc86cd08913014decf7bced128433442c8f84/projects.example.json), each project config needs to have the following components
+As you can notice in [`config/projects.example.json`](https://github.com/Seth-Schmidt/snapshotter-configs/blob/582045837fd66b8da1d528410d5984bbe304bcfa/projects.example.json), each project config needs to have the following components
 
 - `project_type` (unique identifier prefix for the usecase, [used to generate project ID](#base-snapshot-generation))
 - `projects` (smart contracts to extract data from, pooler can generate different snapshots from multiple sources as long as the Contract ABI is same)
 - `processor` (the actual compuation logic reference, while you can write the logic anywhere, it is recommended to write your implementation in snapshotter/modules folder)
 
+Optionally, a project can define one or more `preloaders` as a dependency in `snapshotter/modules/computes/utils/preloaders/` that will run before any core compute logic is executed. Preloaders can be used to fetch data points that will be shared between projects to prevent redundant RPC queries, or to submit large workloads over a request queue and wait for the results to be returned over a response queue. See the [Powerloom Docs](https://docs.powerloom.io/docs/Protocol/Specifications/Snapshotter/preloading) for more information on preloaders. This use case leverages the `preloader` concept to fetch the following data:
+
+- `bulk_asset`: Fetches key data points for all assets using Aave's [UiPoolDataProviderV3](https://docs.aave.com/developers/periphery-contracts/uipooldataproviderv3) Smart Contract
+- `bulk_event`: Fetches emitted events from Aave's [Pool](https://docs.aave.com/developers/core-contracts/pool) Smart Contract for all assets 
+
 There's currently no limitation on the number or type of usecases you can build using snapshotter. Just write the Processor class and pooler libraries will take care of the rest.
 
 ```json
 {
-  "config": [{
-      "project_type": "uniswap_pairContract_pair_total_reserves",
+  "config": [
+    {
+    "project_type": "poolContract_total_supply",
       "projects":[
-        "0xb4e16d0168e52d35cacd2c6185b44281ec28c9dc",
-        "0xae461ca67b15dc8dc81ce7615e0320da1a9ab8d5",
-        "0x0d4a11d5eeaac28ec3f61d100daf4d40471f1852",
-        "0x3041cbd36888becc7bbcbc0045e3b1f144466f5f",
-        "0xd3d2e2692501a5c9ca623199d38826e513033a17",
-        "0xbb2b8038a1640196fbe3e38816f3e67cba72d940",
-        "0xa478c2975ab1ea89e8196811f51a7b7ade33eb11"
+        "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48",
+        "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2",
+        "0x2260fac5e5542a773aa44fbcfedf7c193bc2c599",
+        "0x7f39c581f595b53c5cb19bd0b3f8da6c935e2ca0",
+        "0x6b175474e89094c44da98b954eedeac495271d0f"
         ],
       "processor":{
-        "module": "pooler.modules.uniswapv2.pair_total_reserves",
-        "class_name": "PairTotalReservesProcessor"
-      }
+        "module": "snapshotter.modules.computes.pool_total_supply",
+        "class_name": "AssetTotalSupplyProcessor"
+      },
+      "preload_tasks":[
+        "bulk_asset",
+        "block_details"
+      ]
     },
     {
-      "project_type": "uniswap_pairContract_trade_volume",
+    "project_type": "poolContract_supply_volume",
       "projects":[
-        "0xb4e16d0168e52d35cacd2c6185b44281ec28c9dc",
-        "0xae461ca67b15dc8dc81ce7615e0320da1a9ab8d5",
-        "0x0d4a11d5eeaac28ec3f61d100daf4d40471f1852",
-        "0x3041cbd36888becc7bbcbc0045e3b1f144466f5f",
-        "0xd3d2e2692501a5c9ca623199d38826e513033a17",
-        "0xbb2b8038a1640196fbe3e38816f3e67cba72d940",
-        "0xa478c2975ab1ea89e8196811f51a7b7ade33eb11"
+        "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48",
+        "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2",
+        "0x2260fac5e5542a773aa44fbcfedf7c193bc2c599",
+        "0x7f39c581f595b53c5cb19bd0b3f8da6c935e2ca0",
+        "0x6b175474e89094c44da98b954eedeac495271d0f"
         ],
-        "processor":{
-          "module": "pooler.modules.uniswapv2.trade_volume",
-          "class_name": "TradeVolumeProcessor"
-        }
+      "processor":{
+        "module": "snapshotter.modules.computes.pool_supply_volume",
+        "class_name": "AssetSupplyVolumeProcessor"
+      },
+      "preload_tasks":[
+        "bulk_asset",
+        "block_details",
+        "bulk_event"
+      ]
     }
   ]
 }
 ```
 
-If we take a look at the `TradeVolumeProcessor` class present at [`snapshotter/modules/computes/trade_volume.py`](https://github.com/PowerLoom/snapshotter-computes/blob/6fb98b1bbc22be8b5aba8bdc860004d35786f4df/trade_volume.py) it implements the interface of `GenericProcessorSnapshot` defined in [`snapshotter/utils/callback_helpers.py`](snapshotter/utils/callback_helpers.py).
+If we take a look at the `AssetSupplyVolumeProcessor` class present at [`snapshotter/modules/computes/pool_supply_volume.py`](https://github.com/Seth-Schmidt/snapshotter-computes/blob/aave/pool_supply_volume.py) it implements the interface of `GenericProcessorSnapshot` defined in [`snapshotter/utils/callback_helpers.py`](snapshotter/utils/callback_helpers.py).
 
 
 There are a couple of important concepts here necessary to write your extraction logic:
@@ -345,7 +365,7 @@ There are a couple of important concepts here necessary to write your extraction
 
 Output format can be anything depending on the usecase requirements. Although it is recommended to use proper [`pydantic`](https://pypi.org/project/pydantic/) models to define the snapshot interface.
 
-The resultant output model in this specific example is `UniswapTradesSnapshot` as defined in the Uniswap v2 specific modules directory: [`utils/models/message_models.py`](https://github.com/PowerLoom/snapshotter-computes/blob/6fb98b1bbc22be8b5aba8bdc860004d35786f4df/utils/models/message_models.py#L47-L54). This encapsulates state information captured by `TradeVolumeProcessor` between the block heights of the epoch: `min_chain_height` and `max_chain_height`.
+The resultant output model in this specific example is `AaveSupplyVolumeSnapshot` as defined in the Aave V3 specific modules directory: [`utils/models/message_models.py`](https://github.com/Seth-Schmidt/snapshotter-computes/blob/3e56f33aec5ceb2fecc6ec1b10d4536572136145/utils/models/message_models.py#L91). This encapsulates state information captured by `AssetSupplyVolumeProcessor` between the block heights of the epoch: `min_chain_height` and `max_chain_height`.
 
 
 ## Find us
