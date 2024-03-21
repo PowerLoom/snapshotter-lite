@@ -4,9 +4,9 @@ source .env
 
 if [ -z "$OVERRIDE_DEFAULTS" ]; then
     echo "reset to default values...";
-    export PROST_RPC_URL="https://rpc-prost1d.powerloom.io"
-    export PROTOCOL_STATE_CONTRACT="0xa028e377719B1F6399b415D85DA1F6ec77C82823"
-    export PROST_CHAIN_ID="104"
+    export PROST_RPC_URL="https://rpc-prost-1h-sv2cc82c3x.t.conduit.xyz"
+    export PROTOCOL_STATE_CONTRACT="0xDD5ebfadb19770C6E3f0E44bca3e1920AB73285c"
+    export PROST_CHAIN_ID="11165"
 fi
 
 echo 'populating setting from environment values...';
