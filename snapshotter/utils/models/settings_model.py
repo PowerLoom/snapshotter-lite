@@ -97,6 +97,7 @@ class Settings(BaseModel):
     reporting: ReportingConfig
     logs: Logs
     projects_config_path: str
+    simulation_submission_url: str
     pair_contract_abi: str
     protocol_state: EventContract
     relayer: Relayer

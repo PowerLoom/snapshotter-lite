@@ -197,7 +197,7 @@ class GenericAsyncWorker:
         # submit to relayer
         try:
             response = await self._client.post(
-                url=urljoin("https://snapshotter-api.powerloom.io", settings.relayer.endpoint),
+                url=urljoin(settings.simulation_submission_url, settings.relayer.endpoint),
                 json={
                     'slotId': settings.slot_id,
                     'request': request_,
