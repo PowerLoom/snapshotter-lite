@@ -23,7 +23,7 @@ eth-keys==0.5.0
 eth-rlp==1.0.0
 eth-typing==4.0.0
 eth-utils==3.0.0
-eth_abi==5.0.0
+eth_abi==5.0.1
 exceptiongroup==1.2.0
 fastapi==0.95.1
 fastapi-pagination==0.12.12
