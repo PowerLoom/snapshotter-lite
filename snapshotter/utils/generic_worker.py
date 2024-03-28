@@ -141,7 +141,7 @@ class GenericAsyncWorker:
             else:
                 logger.error('Exception while sending callback or notification: {}', e)
         else:
-            logger.debug('Callback or notification result:{}', r)
+            logger.debug('Callback or notification result:{}', r[0])
 
     async def _httpx_post_wrapper(self, url, req_json):
         exc = None
@@ -365,9 +365,9 @@ class GenericAsyncWorker:
         request_, signature = self.generate_signature(snapshot_cid, epoch_id, project_id)
         # submit to relayer
         f = asyncio.ensure_future(
-            self._httpx_post_wrapper(
+            self._client.post(
                 url=urljoin(settings.relayer.host, settings.relayer.endpoint),
-                req_json={
+                json={
                     'slotId': settings.slot_id,
                     'request': request_,
                     'signature': '0x' + str(signature.hex()),
@@ -378,7 +378,7 @@ class GenericAsyncWorker:
                 },
             ),
         )
-        f.add_done_callback(self._notification_callback_result_handler)
+        f.add_done_callback(misc_notification_callback_result_handler)
 
         self.logger.info(
             'Submitted snapshot CID {} to relayer | Epoch: {} | Project: {}',
