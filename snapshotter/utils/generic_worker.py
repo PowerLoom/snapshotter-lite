@@ -120,6 +120,42 @@ class GenericAsyncWorker:
         self.protocol_state_contract_address = settings.protocol_state.address
         self.initialized = False
         self.logger = logger.bind(module='GenericAsyncWorker')
+    
+    def _notification_callback_result_handler(self, fut: asyncio.Future):
+        """
+        Handles the result of a callback or notification.
+
+        Args:
+            fut (asyncio.Future): The future object representing the callback or notification.
+
+        Returns:
+            None
+        """
+        try:
+            r = fut.result()
+        except Exception as e:
+            if settings.logs.trace_enabled:
+                logger.opt(exception=True).error(
+                    'Exception while sending callback or notification: {}', traceback.format_exc(),
+                )
+            else:
+                logger.error('Exception while sending callback or notification: {}', e)
+        else:
+            logger.debug('Callback or notification result:{}', r[0])
+
+    async def _httpx_post_wrapper(self, url, req_json):
+        exc = None
+        try:
+            r = await self._client.post(url=url, json=req_json)
+        except Exception as e:
+            exc = e
+            r = None
+        else:
+            try:
+                r = r.json()
+            except:
+                r = str(r)
+        return r, exc, req_json['epochId'], req_json['projectId'], req_json['slotId']
 
     @retry(
         wait=wait_random_exponential(multiplier=1, max=10),
@@ -197,7 +233,7 @@ class GenericAsyncWorker:
         # submit to relayer
         try:
             response = await self._client.post(
-                url=urljoin("https://snapshotter-api.powerloom.io", settings.relayer.endpoint),
+                url=urljoin(settings.simulation_submission_url, settings.relayer.endpoint),
                 json={
                     'slotId': settings.slot_id,
                     'request': request_,
@@ -335,7 +371,7 @@ class GenericAsyncWorker:
                     'slotId': settings.slot_id,
                     'request': request_,
                     'signature': '0x' + str(signature.hex()),
-                    'projectId': project_id,
+                    'projectId': f"{project_id}",
                     'epochId': epoch_id,
                     'snapshotCid': snapshot_cid,
                     'contractAddress': self.protocol_state_contract_address,
@@ -343,6 +379,7 @@ class GenericAsyncWorker:
             ),
         )
         f.add_done_callback(misc_notification_callback_result_handler)
+
         self.logger.info(
             'Submitted snapshot CID {} to relayer | Epoch: {} | Project: {}',
             snapshot_cid,
