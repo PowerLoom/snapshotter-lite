@@ -2,6 +2,12 @@
 
 source .env
 
+if [ -z "$OVERRIDE_DEFAULTS" ]; then
+    echo "reset to default values...";
+    export PROST_RPC_URL="https://rpc-prost-1h-sv2cc82c3x.t.conduit.xyz"
+    export PROTOCOL_STATE_CONTRACT="0xa71Bb0F24744E86a4ABe3C97bA8dd762A5313ADD"
+    export PROST_CHAIN_ID="11165"
+fi
 
 echo 'populating setting from environment values...';
 
@@ -77,7 +83,7 @@ export ipfs_url="${IPFS_URL:-}"
 export ipfs_api_key="${IPFS_API_KEY:-}"
 export ipfs_api_secret="${IPFS_API_SECRET:-}"
 export web3_storage_token="${WEB3_STORAGE_TOKEN:-}"
-export relayer_host="${RELAYER_HOST:-https://relayer-prod1d.powerloom.io}"
+export relayer_host="${RELAYER_HOST:-https://relayer-nms-testnet-public.powerloom.io}"
 
 export slack_reporting_url="${SLACK_REPORTING_URL:-}"
 export powerloom_reporting_url="${POWERLOOM_REPORTING_URL:-}"

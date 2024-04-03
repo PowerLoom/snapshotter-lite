@@ -61,7 +61,7 @@ class SnapshotAsyncWorker(GenericAsyncWorker):
                 project_id = f'{task_type}:{data_source.lower()}:{settings.namespace}'
         return project_id
 
-    async def _process(self, msg_obj: SnapshotProcessMessage, task_type: str, commit_payload: bool, eth_price_dict: dict):
+    async def _process(self, msg_obj: SnapshotProcessMessage, task_type: str, eth_price_dict: dict):
         """
         Processes the given SnapshotProcessMessage object in bulk mode.
 
@@ -149,7 +149,7 @@ class SnapshotAsyncWorker(GenericAsyncWorker):
                     await self._submit_to_snap_api_and_check(
                         project_id=project_id, epoch=msg_obj, snapshot=snapshot,
                     )
-                if commit_payload:
+                else:
                     await self._commit_payload(
                         task_type=task_type,
                         _ipfs_writer_client=self._ipfs_writer_client,
@@ -159,7 +159,7 @@ class SnapshotAsyncWorker(GenericAsyncWorker):
                         storage_flag=settings.web3storage.upload_snapshots,
                     )
 
-    async def process_task(self, msg_obj: SnapshotProcessMessage, task_type: str, commit_payload: bool, eth_price_dict: dict):
+    async def process_task(self, msg_obj: SnapshotProcessMessage, task_type: str, eth_price_dict: dict):
         """
         Process a SnapshotProcessMessage object for a given task type.
 
@@ -193,7 +193,7 @@ class SnapshotAsyncWorker(GenericAsyncWorker):
             task_type, msg_obj,
         )
 
-        await self._process(msg_obj=msg_obj, task_type=task_type, commit_payload=commit_payload, eth_price_dict=eth_price_dict)
+        await self._process(msg_obj=msg_obj, task_type=task_type, eth_price_dict=eth_price_dict)
 
     async def _init_project_calculation_mapping(self):
         """

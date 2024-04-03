@@ -160,24 +160,6 @@ class ProcessorDistributor:
                 exit(0)
 
             try:
-                snapshotter_slot = self._protocol_state_contract.functions.getSnapshotterTimeSlot(
-                    settings.slot_id,
-                ).call()
-                if snapshotter_slot == 0:
-                    self._logger.error('Snapshotter slot is not set, exiting')
-                    exit(0)
-                else:
-                    self._logger.info('Snapshotter slot is set to {}', snapshotter_slot)
-                    self._snapshotter_slot = snapshotter_slot
-            except Exception as e:
-                self._logger.error(
-                    'Exception in querying protocol state for time slot {}',
-                    e,
-                )
-                self._logger.error('Unable to get snapshotter slot, exiting')
-                exit(1)
-
-            try:
                 self._current_day = self._protocol_state_contract.functions.dayCounter().call()
 
                 task_completion_status = self._protocol_state_contract.functions.checkSlotTaskStatusForDay(
@@ -306,36 +288,9 @@ class ProcessorDistributor:
             day=epoch.day,
         )
 
-        commit_payload = self._is_allowed_for_epoch(epoch)
-
         asyncio.ensure_future(
-            self.snapshot_worker.process_task(process_unit, project_type, commit_payload, eth_price_dict),
+            self.snapshot_worker.process_task(process_unit, project_type, eth_price_dict),
         )
-
-    def _is_allowed_for_epoch(self, epoch: EpochBase):
-        """
-        Checks if the snapshotter should proceed with snapshotting for the given epoch.
-
-        Args:
-            epoch (EpochBase): The epoch to check.
-
-        Returns:
-            bool: True if the epoch falls in the snapshotter's slot, False otherwise.
-        """
-        if not self._snapshotter_active:
-            return False
-
-        if epoch.epochId == 0:
-            return False
-
-        N = self._slots_per_day
-        self._logger.info('Slots per day: {}', N)
-        epochs_in_a_day = 86400 // (self._epoch_size * self._source_chain_block_time)
-        self._logger.info('Epochs in a day: {}', epochs_in_a_day)
-
-        if (epoch.epochId % epochs_in_a_day) // (epochs_in_a_day // N) == self._snapshotter_slot - 1:
-            return True
-        return False
 
     async def process_event(
         self, type_: str, event: Union[
