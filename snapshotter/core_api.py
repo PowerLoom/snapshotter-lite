@@ -30,6 +30,9 @@ from snapshotter.utils.callback_helpers import send_epoch_processing_failure_not
 # setup logging
 rest_logger = logger.bind(module='CoreAPI')
 
+# Disables unnecessary logging for httpx requests
+rest_logger.disable('httpcore._trace')
+rest_logger.disable('httpx._client')
 
 protocol_state_contract_abi = read_json_file(
     settings.protocol_state.abi,
