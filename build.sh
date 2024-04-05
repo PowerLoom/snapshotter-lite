@@ -98,7 +98,20 @@ if [ "$POWERLOOM_REPORTING_URL" ]; then
     echo "Found SLACK_REPORTING_URL ${POWERLOOM_REPORTING_URL}";
 fi
 
-echo "building...";
+#fetch current git branch name
+GIT_BRANCH=$(git rev-parse --abbrev-ref HEAD)
+
+echo "Current branch is ${GIT_BRANCH}";
+
+#if on main git branch, set image_tag to latest or use the branch name
+
+if [ "$GIT_BRANCH" = "main" ]; then
+    export IMAGE_TAG="latest";
+else
+    export IMAGE_TAG="${GIT_BRANCH}";
+fi
+
+echo "Building image with tag ${IMAGE_TAG}";
 
 if ! [ -x "$(command -v docker-compose)" ]; then
     echo 'docker compose not found, trying to see if compose exists within docker';
