@@ -94,6 +94,11 @@ fi
 # setting up git submodules
 git submodule update --init --recursive
 
+cd ./submission-sequencer/ && chmod +x build-docker.sh && ./build-docker.sh;
+cd ../;
+
+# cd ../validator-alpha/ && chmod +x build-docker.sh && ./build-docker.sh;
+
 docker build -t powerloom-snapshotter-lite .
 
 echo "building...";

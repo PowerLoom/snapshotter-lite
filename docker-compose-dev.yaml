@@ -1,6 +1,48 @@
 version: '3.9'
 
 services:
+  snapshot-server:
+    image: proto-snapshot-server
+    expose:
+      - 50051
+    ports:
+      - 50051:50051
+    environment:
+      - SIGNER_ACCOUNT_ADDRESS=$SIGNER_ACCOUNT_ADDRESS
+      - SIGNER_ACCOUNT_PRIVATE_KEY=$SIGNER_ACCOUNT_PRIVATE_KEY
+      - IPFS_URL=$IPFS_URL
+      - IPFS_API_KEY=$IPFS_API_KEY
+      - IPFS_API_SECRET=$IPFS_API_SECRET
+      - PROTOCOL_STATE_CONTRACT=$PROTOCOL_STATE_CONTRACT
+      - PROST_RPC_URL=$PROST_RPC_URL
+      - PROST_CHAIN_ID=$PROST_CHAIN_ID
+      - REDIS_HOST=${REDIS_HOST:-redis}
+      - REDIS_PORT=${REDIS_PORT:-6379}
+      - SEQUENCER_ID=$SEQUENCER_ID
+      - RENDEZVOUS_POINT=$RENDEZVOUS_POINT
+      - BLOCK_TIME=$BLOCK_TIME
+    command:
+      bash -c  "sh server_autofill.sh && sh init_processes.sh"
+
+  # snapshot-validator:
+  #   image: powerloom-submission-validator
+  #   volumes:
+  #     - local_cache:/home/ubuntu/local_cache/
+  #   environment:
+  #     - SIGNER_ACCOUNT_ADDRESS=$SIGNER_ACCOUNT_ADDRESS
+  #     - SIGNER_ACCOUNT_PRIVATE_KEY=$SIGNER_ACCOUNT_PRIVATE_KEY
+  #     - IPFS_URL=$IPFS_URL
+  #     - IPFS_API_KEY=$IPFS_API_KEY
+  #     - IPFS_API_SECRET=$IPFS_API_SECRET
+  #     - PROTOCOL_STATE_CONTRACT=$PROTOCOL_STATE_CONTRACT
+  #     - PROST_RPC_URL=$PROST_RPC_URL
+  #     - PROST_CHAIN_ID=$PROST_CHAIN_ID
+  #     - REDIS_HOST=${REDIS_HOST:-redis}
+  #     - REDIS_PORT=${REDIS_PORT:-6379}
+  #     - BLOCK_TIME=$BLOCK_TIME
+  #   command:
+  #     bash -c  "sh validator_autofill.sh && sh init_processes.sh"
+
   snapshotter-lite:
     image: powerloom-snapshotter-lite
     expose:
