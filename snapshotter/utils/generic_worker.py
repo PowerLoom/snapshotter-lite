@@ -34,8 +34,8 @@ from snapshotter.utils.callback_helpers import misc_notification_callback_result
 from snapshotter.utils.callback_helpers import send_failure_notifications_async
 from snapshotter.utils.default_logger import logger
 from snapshotter.utils.file_utils import read_json_file
-from snapshotter.utils.models.proto.submission_pb2 import Request, SnapshotSubmission
-from snapshotter.utils.models.proto.submission_pb2_grpc import SubmissionStub
+from snapshotter.utils.models.proto.snapshot_submission.submission_pb2 import Request, SnapshotSubmission
+from snapshotter.utils.models.proto.snapshot_submission.submission_grpc import SubmissionStub
 from snapshotter.utils.models.data_models import SnapshotterIssue
 from snapshotter.utils.models.data_models import SnapshotterReportState
 from snapshotter.utils.models.message_models import SnapshotProcessMessage
