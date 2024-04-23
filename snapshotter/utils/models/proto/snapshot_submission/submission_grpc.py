@@ -9,7 +9,7 @@ import grpclib.client
 if typing.TYPE_CHECKING:
     import grpclib.server
 
-import snapshotter.utils.models.proto.snapshot_submission.submission_pb2
+import snapshotter.utils.models.proto.snapshot_submission.submission_pb2 as submission_pb2
 
 
 class SubmissionBase(abc.ABC):

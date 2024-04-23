@@ -766,7 +766,7 @@ class RpcHelper(object):
 
         return await f(node_idx=0)
     
-    async def eth_get_block(self, redis_conn, block_number=None):
+    async def eth_get_block(self, block_number=None):
         """
         Batch retrieves Ethereum blocks using eth_getBlockByNumber JSON-RPC method.
         Args:
@@ -775,8 +775,6 @@ class RpcHelper(object):
         Returns:
             JSON-RPC response: A response containing the block data from the JSON-RPC call to fetch the respective block.
         """
-        if not self._initialized:
-            await self.init(redis_conn)
 
         rpc_query = []
         block = hex(block_number) if block_number is not None else 'latest'
@@ -793,5 +791,5 @@ class RpcHelper(object):
                 },
             )
 
-        response_data = await self._make_rpc_jsonrpc_call(rpc_query, redis_conn=redis_conn)
+        response_data = await self._make_rpc_jsonrpc_call(rpc_query)
         return response_data[0]['result']

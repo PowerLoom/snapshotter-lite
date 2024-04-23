@@ -232,7 +232,7 @@ class GenericAsyncWorker:
         snapshot_bytes = snapshot_json.encode('utf-8')
         snapshot_cid = cid_sha256_hash(snapshot_bytes)
 
-        request_, signature = self.generate_signature(snapshot_cid, epoch.epochId, f"{project_id}|{settings.node_version}")
+        request_, signature, _ = await self.generate_signature(snapshot_cid, epoch.epochId, f"{project_id}|{settings.node_version}")
         # submit to relayer
         try:
             response = await self._client.post(
@@ -446,7 +446,6 @@ class GenericAsyncWorker:
     async def generate_signature(self, snapshot_cid, epoch_id, project_id):
         # current_block = self._anchor_rpc_helper.get_current_node()['web3_client'].eth.block_number
         current_block = await self._anchor_rpc_helper.eth_get_block(
-            redis_conn=self._redis_conn,
         )
         current_block_number = int(current_block['number'], 16)
         current_block_hash = current_block['hash']
