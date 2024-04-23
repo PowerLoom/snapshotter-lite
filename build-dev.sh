@@ -94,6 +94,18 @@ fi
 # setting up git submodules
 git submodule update --init --recursive
 
+
+rm -rf submission-sequencer;
+git clone https://github.com/PowerLoom/submission-sequencer.git;
+cd ./submission-sequencer;
+git checkout lite_node;
+cd ..;
+
+rm -rf validator-alpha;
+git clone https://github.com/PowerLoom/validator-alpha.git;
+cd ./validator-alpha;
+git checkout gas_fee_legacy;
+cd ..;
 cd ./submission-sequencer/ && chmod +x build-docker.sh && ./build-docker.sh;
 cd ../;
 
