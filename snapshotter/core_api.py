@@ -160,7 +160,6 @@ async def health_check(
 
         # not notifying with telegram, notifications are sent when issues are reported
         if snapshotter_failed:
-            rest_logger.error(f"Snapshotter issues found: {issue_resp.json()}")
             app.state.consecutive_failures += (len(issue_resp.json()) - app.state.consecutive_failures)
         # reset consecutive failures if no issues are found in the last 10 min
         elif len(issue_resp.json()) == 0:
