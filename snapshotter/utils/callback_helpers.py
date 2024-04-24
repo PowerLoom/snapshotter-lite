@@ -11,7 +11,6 @@ from ipfs_client.main import AsyncIPFSClient
 from pydantic import BaseModel
 
 from snapshotter.settings.config import settings
-from snapshotter.settings.config import project_types
 from snapshotter.utils.default_logger import logger
 from snapshotter.utils.models.data_models import TelegramEpochProcessingReportMessage
 from snapshotter.utils.models.data_models import TelegramSnapshotterReportMessage
@@ -110,10 +109,9 @@ async def send_failure_notifications_async(client: AsyncClient, message: Snapsho
         )
         report_frequency = settings.reporting.failure_report_frequency
         consecutive_misses = reporting_message.status.consecutiveMissedSubmissions
-        # Need to account for # of projects to avoid skipping reports
         if (
             consecutive_misses <= 1 or 
-            (consecutive_misses // len(project_types)) % report_frequency == 0
+            consecutive_misses % report_frequency == 0
         ):
             f = asyncio.ensure_future(
                 client.post(
@@ -163,7 +161,7 @@ def send_failure_notifications_sync(client: SyncClient, message: SnapshotterRepo
 
         if (
             consecutive_misses <= 1 or 
-            (consecutive_misses // len(project_types)) % report_frequency == 0
+            consecutive_misses % report_frequency == 0
         ):
             f = functools.partial(
                 client.post,
