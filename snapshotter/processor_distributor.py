@@ -241,6 +241,8 @@ class ProcessorDistributor:
                 'Exception in getting eth price: {}',
                 e,
             )
+            self.snapshot_worker.status.totalMissedSubmissions += 1
+            self.snapshot_worker.status.consecutiveMissedSubmissions += 1
             notification_message = SnapshotterReportData(
                 snapshotterIssue=SnapshotterIssue(
                     instanceID=settings.instance_id,
@@ -250,11 +252,7 @@ class ProcessorDistributor:
                     timeOfReporting=str(time.time()),
                     extra=json.dumps({'issueDetails': f'Error : {e}'}),
                 ),
-                snapshotterStatus=SnapshotterStatus(
-                    totalMissedSubmissions=-1,
-                    consecutiveMissedSubmissions=-1,
-                    projects=[],
-                ),
+                snapshotterStatus=self.snapshot_worker.status,
             )
             await send_failure_notifications_async(
                 client=self._client, message=notification_message,

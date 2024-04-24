@@ -98,8 +98,8 @@ class SnapshotAsyncWorker(GenericAsyncWorker):
                 'sending failure notifications', msg_obj, e,
             )
 
-            self._status.totalMissedSubmissions += 1
-            self._status.consecutiveMissedSubmissions += 1
+            self.status.totalMissedSubmissions += 1
+            self.status.consecutiveMissedSubmissions += 1
 
             notification_message = SnapshotterReportData(
                 snapshotterIssue=SnapshotterIssue(
@@ -110,7 +110,7 @@ class SnapshotAsyncWorker(GenericAsyncWorker):
                     timeOfReporting=str(time.time()),
                     extra=json.dumps({'issueDetails': f'Error : {e}'}),
                 ),
-                snapshotterStatus=self._status,
+                snapshotterStatus=self.status,
             )
 
             await send_failure_notifications_async(
