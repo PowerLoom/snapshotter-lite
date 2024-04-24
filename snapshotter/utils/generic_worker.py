@@ -45,7 +45,7 @@ from snapshotter.utils.rpc import RpcHelper
 import sys
 
 
-class Request(EIP712Struct):
+class EIPRequest(EIP712Struct):
     slotId = Uint()
     deadline = Uint()
     snapshotCid = String()
@@ -108,6 +108,8 @@ class GenericAsyncWorker:
     _httpx_client: AsyncClient
     _web3_storage_upload_transport: AsyncHTTPTransport
     _web3_storage_upload_client: AsyncClient
+    _grpc_channel: Channel
+    _grpc_stub: SubmissionStub
 
     def __init__(self):
         """
@@ -283,6 +285,10 @@ class GenericAsyncWorker:
             self.logger.debug(
                 'Snapshot submission creation with request: {}', request_msg
             )
+            # msg = SnapshotSubmission()
+            # msg.request = request_msg
+            # msg.signature = signature.hex()
+            # msg.header = current_block_hash
             msg = SnapshotSubmission(request=request_msg, signature=signature.hex(), header=current_block_hash)
             self.logger.debug(
                 'Snapshot submission created: {}', msg
@@ -351,7 +357,7 @@ class GenericAsyncWorker:
                 await self._send_submission_to_collector(snapshot_cid, epoch.epochId, project_id)
             except Exception as e:
                 self.logger.opt(exception=True).error(
-                    'Exception submitting snapshot to relayer for epoch {}: {}, Error: {},'
+                    'Exception submitting snapshot to collector for epoch {}: {}, Error: {},'
                     'sending failure notifications', epoch, snapshot, e,
                 )
                 notification_message = SnapshotterIssue(
@@ -450,7 +456,7 @@ class GenericAsyncWorker:
         current_block_number = int(current_block['number'], 16)
         current_block_hash = current_block['hash']
         deadline = current_block_number + settings.protocol_state.deadline_buffer
-        request = Request(
+        request = EIPRequest(
             slotId=settings.slot_id,
             deadline=deadline,
             snapshotCid=snapshot_cid,
