@@ -267,7 +267,7 @@ class GenericAsyncWorker:
             sys.exit(1)
     
     async def _send_submission_to_collector(self, snapshot_cid, epoch_id, project_id):
-        self._logger.debug(
+        self.logger.debug(
                 f'Sending submission to collector...',
             )
         request_, signature, current_block_hash = await self.generate_signature(snapshot_cid, epoch_id, project_id)
@@ -280,16 +280,16 @@ class GenericAsyncWorker:
                 epochId=request_['epochId'],
                 projectId=request_['projectId'],
             )
-            self._logger.debug(
+            self.logger.debug(
                 'Snapshot submission creation with request: {}', request_msg
             )
             msg = SnapshotSubmission(request=request_msg, signature=signature.hex(), header=current_block_hash)
-            self._logger.debug(
+            self.logger.debug(
                 'Snapshot submission created: {}', msg
             )
             await stream.send_message(msg)
             response = await stream.recv_message()
-            self._logger.info('Received response from collector: {}', response)
+            self.logger.info('Received response from collector: {}', response)
 
     async def _commit_payload(
             self,
