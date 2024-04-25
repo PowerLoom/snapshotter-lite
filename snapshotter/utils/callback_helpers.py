@@ -107,19 +107,14 @@ async def send_failure_notifications_async(client: AsyncClient, message: Snapsho
             issue=message.snapshotterIssue,
             status=message.snapshotterStatus,
         )
-        report_frequency = settings.reporting.failure_report_frequency
-        consecutive_misses = reporting_message.status.consecutiveMissedSubmissions
-        if (
-            consecutive_misses <= 1 or 
-            consecutive_misses % report_frequency == 0
-        ):
-            f = asyncio.ensure_future(
-                client.post(
-                    url=urljoin(settings.reporting.telegram_url, '/reportSnapshotIssue'),
-                    json=reporting_message.dict(),
-                ),
-            )
-            f.add_done_callback(misc_notification_callback_result_handler)
+        
+        f = asyncio.ensure_future(
+            client.post(
+                url=urljoin(settings.reporting.telegram_url, '/reportSnapshotIssue'),
+                json=reporting_message.dict(),
+            ),
+        )
+        f.add_done_callback(misc_notification_callback_result_handler)
 
 
 def send_failure_notifications_sync(client: SyncClient, message: SnapshotterReportData):
@@ -156,19 +151,13 @@ def send_failure_notifications_sync(client: SyncClient, message: SnapshotterRepo
             issue=message.snapshotterIssue,
             status=message.snapshotterStatus,
         )
-        report_frequency = settings.reporting.failure_report_frequency
-        consecutive_misses = reporting_message.status.consecutiveMissedSubmissions
 
-        if (
-            consecutive_misses <= 1 or 
-            consecutive_misses % report_frequency == 0
-        ):
-            f = functools.partial(
-                client.post,
-                url=urljoin(settings.reporting.telegram_url, '/reportSnapshotIssue'),
-                json=reporting_message.dict(),
-            )
-            sync_notification_callback_result_handler(f)
+        f = functools.partial(
+            client.post,
+            url=urljoin(settings.reporting.telegram_url, '/reportSnapshotIssue'),
+            json=reporting_message.dict(),
+        )
+        sync_notification_callback_result_handler(f)
 
 
 async def send_epoch_processing_failure_notification_async(client: AsyncClient, message: EpochProcessingIssue):
