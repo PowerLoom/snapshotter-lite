@@ -275,7 +275,7 @@ class GenericAsyncWorker:
         request_, signature, current_block_hash = await self.generate_signature(snapshot_cid, epoch_id, project_id)
     
         async with self._grpc_stub.SubmitSnapshot.open() as stream:
-            request_msg = Request(
+            request_msg = dict(
                 slotId=request_['slotId'],
                 deadline=request_['deadline'],
                 snapshotCid=request_['snapshotCid'],
@@ -351,8 +351,7 @@ class GenericAsyncWorker:
                 client=self._client, message=notification_message,
             )
         else:
-
-            # submit to relayer
+            # submit to collector
             try:
                 await self._send_submission_to_collector(snapshot_cid, epoch.epochId, project_id)
             except Exception as e:
