@@ -27,19 +27,19 @@
 
 ![Snapshotter workflow](snapshotter/static/docs/assets/OverallArchitecture.png)
 
-A snapshotter peer as part of Powerloom Protocol does exactly what the name suggests:  It synchronizes with other snapshotter peers over a smart contract running on Powerloom Prost chain. It follows an architecture that is driven by state transitions which makes it easy to understand and modify.
+A Snapshotter peer as part of Powerloom Protocol does exactly what the name suggests:  It synchronizes with other Snapshotter peers over a smart contract running on Powerloom Prost chain. It follows an architecture that is driven by state transitions which makes it easy to understand and modify.
 
-Because of its decentralized nature, the snapshotter specification and its implementations share some powerful features that can adapt to your specific information requirements on blockchain applications:
+Because of its decentralized nature, the Snapshotter specification and its implementations share some powerful features that can adapt to your specific information requirements on blockchain applications:
 
-* Each data point is calculated, updated, and synchronized with other snapshotter peers participating in the network
+* Each data point is calculated, updated, and synchronized with other Snapshotter peers participating in the network
 * synchronization of data points is defined as a function of an epoch ID(identifier) where epoch refers to an equally spaced collection of blocks on the data source blockchain (for eg, Ethereum Mainnet/Polygon Mainnet/Polygon Testnet -- Mumbai). This simplifies the building of use cases that are stateful (i.e. can be accessed according to their state at a given height of the data source chain), synchronized, and depend on reliable data. For example,
-    * dashboards by offering higher-order aggregate datapoints
+    * dashboards by offering higher-order aggregate data points
     * trading strategies and bots
-* a snapshotter peer can load past epochs, indexes, and aggregates from a decentralized state and have access to a rich history of data
+* a Snapshotter peer can load past epochs, indexes, and aggregates from a decentralized state and have access to a rich history of data
     * all the datasets are decentralized on IPFS/Filecoin
     * the power of these decentralized storage networks can be leveraged fully by applying the [principle of composability](#aggregation-and-data-composition---snapshot-generation-of-higher-order-datapoints-on-base-snapshots)
 
-Snapshotter Lite Node is a lightweight implementation of the [Snapshotter Peer](https://github.com/PowerLoom/pooler/tree/main) that can be used to build simpler use cases that do not require the full functionality of the Snapshotter Peer. Snapshotter Lite Node only has a single dependency on Python environment and hence has significantly lower resource requirements than the Snapshotter Peer. It is suitable for use cases where no aggregation is required and the data can be directly used from the base snapshots.
+Snapshotter Lite Node is a lightweight implementation of the [Snapshotter Peer](https://github.com/PowerLoom/pooler/tree/main) that can be used to build simpler use cases that do not require the full functionality of the Snapshotter Peer. Snapshotter Lite Node only has a single dependency on the Python environment and hence has significantly lower resource requirements than the Snapshotter Peer. It is suitable for use cases where no aggregation is required and the data can be directly used from the base snapshots.
 
 Architecturally, the Snapshotter Lite Node is similar to the [Snapshotter Peer](https://github.com/PowerLoom/pooler/tree/main), it still has the same modular and highly configurable architecture, allowing for easy customization and seamless integration. It consists of three core components:
 
@@ -50,7 +50,7 @@ Architecturally, the Snapshotter Lite Node is similar to the [Snapshotter Peer](
    - Configuration files, located in the `/config` directory are linked to [snapshotter-configs](https://github.com/PowerLoom/snapshotter-configs/) repo, play a pivotal role in defining project types, specifying paths for individual compute modules, and managing various project-related settings.
 
 3. **Compute Modules**:
-   - The heart of the system resides in the `snapshotter/modules` directory are linked to [snapshotter-computes](https://github.com/PowerLoom/snapshotter-computes/), where the actual computation logic for each project type is defined. These modules drive the snapshot generation process for specific project types.
+   - The heart of the system resides in the `snapshotter/modules` directory linked to [snapshotter-computes](https://github.com/PowerLoom/snapshotter-computes/), where the actual computation logic for each project type is defined. These modules drive the snapshot generation process for specific project types.
 
 ![Snapshotter Architecture](snapshotter/static/docs/assets/SnapshotterArchitecture.png)
 
@@ -103,7 +103,7 @@ https://github.com/PowerLoom/snapshotter-lite/blob/79e251b72ae617c70555d9925964c
 
  The snapshots generated are the fundamental data models on which higher-order aggregates and richer data points are built (By [Full Nodes](https://github.com/PowerLoom/deploy))
 
-For situations where data sources are constantly changing or numerous, it is impractical to maintain an extensive list of them. In such cases, specific data sources need not be defined explicitly. You can just define a filtering criteria for the data source contract address and the snapshotter will automatically generate snapshots for all data sources that match the criteria.
+For situations where data sources are constantly changing or numerous, it is impractical to maintain an extensive list of them. In such cases, specific data sources need not be defined explicitly. You can just define a filtering criteria for the data source contract address and the Snapshotter will automatically generate snapshots for all data sources that match the criteria.
 
 For complex use cases with a lot of data requirements, it is recommended to use the [Snapshotter Peer](https://github.com/PowerLoom/pooler/tree/main) instead of the Snapshotter Lite Node because it employs a more efficient and scalable architecture.
 
@@ -126,12 +126,12 @@ System Event Detector, defined in [`system_event_detector.py`](snapshotter/syste
 
 Events being tracked by the system event detector are:
 - `EpochReleased` - This event is emitted by the Protocol State Contract when an epoch is released. It is used to trigger the snapshot generation process.
-- `allSnapshottersUpdated` - This event is emitted by the Protocol State Contract when a new snapshotter peer is added or removed from the network. It is used to enable or disable the snapshot generation process (Might be removed closer to mainnet).
-- `DailyTaskCompletedEvent` - Each snapshotter lite peer needs to complete a daily task to be eligible for rewards. This event is emitted by the Protocol State Contract when a snapshotter lite peer completes its daily task, making it inactive for the rest of the day.
+- `allSnapshottersUpdated` - This event is emitted by the Protocol State Contract when a new Snapshotter peer is added or removed from the network. It is used to enable or disable the snapshot generation process (Might be removed closer to mainnet).
+- `DailyTaskCompletedEvent` - Each Snapshotter lite peer needs to complete a daily task to be eligible for rewards. This event is emitted by the Protocol State Contract when a Snapshotter lite peer completes its daily task, making it inactive for the rest of the day.
 - `DayStartedEvent` - This event is emitted by the Protocol State Contract when a new day starts. This is used to re-enable the snapshot generation process for all snapshotter lite peers.
 
 ### Processor Distributor
-The Processor Distributor, defined in [`processor_distributor.py`](snapshotter/processor_distributor.py), acts upon the events received from the System Event Detector and distributes the processing tasks to the appropriate snapshot processors. It is also responsible for acting on `allSnapshottersUpdated`, `DailyTaskCompletedEvent` and `DayStartedEvent` events to manage the snapshot generation process.
+The Processor Distributor, defined in [`processor_distributor.py`](snapshotter/processor_distributor.py), acts upon the events received from the System Event Detector and distributes the processing tasks to the appropriate snapshot processors. It is also responsible for acting on `allSnapshottersUpdated`, `DailyTaskCompletedEvent`, and `DayStartedEvent` events to manage the snapshot generation process.
 
 https://github.com/PowerLoom/snapshotter-lite/blob/79e251b72ae617c70555d9925964c38c4a80c09e/snapshotter/processor_distributor.py#L300-L345
 
@@ -197,18 +197,18 @@ However, it is recommended to use the Docker image as it is the easiest and most
    cd powerloom
    ```
 
-4. Run `build.sh` to start the snapshotter lite node:
+4. Run `build.sh` to start the Snapshotter lite node:
    ```bash
    ./build.sh
    ```
-   If you're a developer and want to play around with the code, instead of running `build.sh`, you can run the following command to start the snapshotter lite node:
+   If you're a developer and want to play around with the code, instead of running `build.sh`, you can run the following command to start the Snapshotter lite node:
    ```bash
    ./build-dev.sh
    ```
 
 5. When prompted, enter `$SOURCE_RPC_URL`, `SIGNER_ACCOUNT_ADDRESS`, `SIGNER_ACCOUNT_PRIVATE_KEY` (only required for the first time), this will create a `.env` file in the root directory of the project.
 
-6. This should start your snapshotter node and you should see something like this in your terminal logs
+6. This should start your Snapshotter node and you should see something like this in your terminal logs
   ```bash
   snapshotter-lite_1  | 1|snapshotter-lite  | February 5, 2024 > 15:10:17 | INFO | Current block: 2208370| {'module': 'EventDetector'}
   snapshotter-lite_1  | 1|snapshotter-lite  | February 5, 2024 > 15:10:18 | DEBUG | Set source chain block time to 12.0| {'module': 'ProcessDistributor'}
@@ -223,7 +223,7 @@ However, it is recommended to use the Docker image as it is the easiest and most
 NOTE: It is recommended to run `build.sh` in a screen or tmux session so that the process continues running even after you close the terminal.
 
 ### Without Docker
-If you want to run the Snapshotter Lite Node without Docker, you need to make sure that you have Git, and Python 3.10.13 installed on your machine. You can find the installation instructions for your operating system on the [official Python website](https://www.python.org/downloads/).
+If you want to run the Snapshotter Lite Node without Docker, you need to make sure that you have Git and Python 3.10.13 installed on your machine. You can find the installation instructions for your operating system on the [official Python website](https://www.python.org/downloads/).
 
 1. Clone this repository using the following command:
    ```bash
@@ -236,7 +236,7 @@ If you want to run the Snapshotter Lite Node without Docker, you need to make su
    cd powerloom
    ```
 
-3. Run `init.sh` to start the snapshotter lite node:
+3. Run `init.sh` to start the Snapshotter lite node:
    ```bash
    ./init.sh
    ```
@@ -251,8 +251,14 @@ If you want to run the Snapshotter Lite Node without Docker, you need to make su
 ### Monitoring
 **TODO** - Enter Node dashboard screenshots and information here
 
+To enable Telegram reporting for Snapshotter issues:
+1. Search for `@PowerloomReportingBot` in the Telegram App and start a conversation.
+2. Start the bot by typing the `/start` command in the chat. You will receive a response containing your `Chat ID` for the bot.
+3. Enter the `Chat ID` when prompted on node startup.
+4. You will now receive an error report whenever your node fails to process an epoch or snapshot.
+
 ### Debugging
-Usually the easiest way to fix node related issues is to restart the node. If you're facing issues with the node, you can try going through the logs present in the `logs` directory. If you're unable to find the issue, you can reach out to us on [Discord](https://powerloom.io/discord) and we will be happy to help you out.
+Usually, the easiest way to fix node-related issues is to restart the node. If you're facing issues with the node, you can try going through the logs present in the `logs` directory. If you're unable to find the issue, you can reach out to us on [Discord](https://powerloom.io/discord) and we will be happy to help you out.
 
 ## For Contributors
 We use [pre-commit hooks](https://pre-commit.com/) to ensure our code quality is maintained over time. For this contributors need to do a one-time setup by running the following commands.
@@ -265,21 +271,21 @@ Now, whenever you commit anything, it'll automatically check the files you've ch
 
 ### 1. Pooler: Case study and extending this implementation
 
-Pooler is a Uniswap specific implementation of what is known as a 'snapshotter' in the PowerLoom Protocol ecosystem. It synchronizes with other snapshotter peers over a smart contract running on the present version of the PowerLoom Protocol testnet. It follows an architecture that is driven by state transitions which makes it easy to understand and modify. This present release ultimately provide access to rich aggregates that can power a Uniswap v2 dashboard with the following data points:
+Pooler is a Uniswap-specific implementation of what is known as a 'Snapshotter' in the PowerLoom Protocol ecosystem. It synchronizes with other Snapshotter peers over a smart contract running on the present version of the PowerLoom Protocol testnet. It follows an architecture that is driven by state transitions which makes it easy to understand and modify. This present release ultimately provides access to rich aggregates that can power a Uniswap v2 dashboard with the following data points:
 
 - Total Value Locked (TVL)
 - Trade Volume, Liquidity reserves, Fees earned
     - grouped by
         - Pair contracts
         - Individual tokens participating in pair contract
-    - aggregated over time periods
+    - aggregated over periods
         - 24 hours
         - 7 days
 - Transactions containing `Swap`, `Mint`, and `Burn` events
 
 #### Extending pooler with a Uniswap v2 data point
 
-In this section, let us take a look at the data composition abilities of Pooler to build on the base snapshot being built that captures information on Uniswap trades.
+In this section, let us take a look at the data composition abilities of Pooler to build on the base snapshot that captures information on Uniswap trades.
 
 ##### Step 1. Review: Base snapshot extraction logic for trade information
 
@@ -288,11 +294,11 @@ Required reading:
 
 As you can notice in [`config/projects.example.json`](https://github.com/PowerLoom/snapshotter-configs/blob/f46cc86cd08913014decf7bced128433442c8f84/projects.example.json), each project config needs to have the following components
 
-- `project_type` (unique identifier prefix for the usecase, [used to generate project ID](#base-snapshot-generation))
+- `project_type` (unique identifier prefix for the use case, [used to generate project ID](#base-snapshot-generation))
 - `projects` (smart contracts to extract data from, pooler can generate different snapshots from multiple sources as long as the Contract ABI is same)
-- `processor` (the actual compuation logic reference, while you can write the logic anywhere, it is recommended to write your implementation in snapshotter/modules folder)
+- `processor` (the actual computation logic reference, while you can write the logic anywhere, it is recommended to write your implementation in snapshotter/modules folder)
 
-There's currently no limitation on the number or type of usecases you can build using snapshotter. Just write the Processor class and pooler libraries will take care of the rest.
+There's currently no limitation on the number or type of use-cases you can build using Snapshotter. Just write the Processor class and pooler libraries will take care of the rest.
 
 ```json
 {
@@ -337,13 +343,13 @@ If we take a look at the `TradeVolumeProcessor` class present at [`snapshotter/m
 
 There are a couple of important concepts here necessary to write your extraction logic:
 * `compute` is the main function where most of the snapshot extraction and generation logic needs to be written. It receives the following inputs:
-- `msg_obj` (`SnapshotProcessMessage` instance, contains all the necessary epoch related information to generate snapshots)
+- `msg_obj` (`SnapshotProcessMessage` instance, contains all the necessary epoch-related information to generate snapshots)
 - `rpc_helper` ([`RpcHelper`](snapshotter/utils/rpc.py) instance to help with any calls to the data source contract's chain)
 - `anchor_rpc_helper` ([`RpcHelper`](snapshotter/utils/rpc.py) instance to help with any calls to the protocol state contract's chain)
 - `ipfs_reader` (async IPFS client to read the data from IPFS)
 - `protocol_state_contract` (protocol state contract instance to read the finalized snapshot CID or anything else from the protocol state contract required for snapshot generation)
 
-Output format can be anything depending on the usecase requirements. Although it is recommended to use proper [`pydantic`](https://pypi.org/project/pydantic/) models to define the snapshot interface.
+The output format can be anything depending on the use-case requirements. Although it is recommended to use proper [`pydantic`](https://pypi.org/project/pydantic/) models to define the snapshot interface.
 
 The resultant output model in this specific example is `UniswapTradesSnapshot` as defined in the Uniswap v2 specific modules directory: [`utils/models/message_models.py`](https://github.com/PowerLoom/snapshotter-computes/blob/6fb98b1bbc22be8b5aba8bdc860004d35786f4df/utils/models/message_models.py#L47-L54). This encapsulates state information captured by `TradeVolumeProcessor` between the block heights of the epoch: `min_chain_height` and `max_chain_height`.
 

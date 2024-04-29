@@ -1,11 +1,18 @@
+import time
+import json
 from fastapi import FastAPI
 from fastapi import Request
 from fastapi import Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi_pagination import add_pagination
 from fastapi_pagination import Page
+from httpx import AsyncClient
+from httpx import AsyncHTTPTransport
+from httpx import Limits
+from httpx import Timeout
 from ipfs_client.main import AsyncIPFSClientSingleton
 from pydantic import Field
+from urllib.parse import urljoin
 from web3 import Web3
 
 from snapshotter.settings.config import settings
@@ -13,13 +20,19 @@ from snapshotter.utils.data_utils import get_project_epoch_snapshot
 from snapshotter.utils.data_utils import get_project_finalized_cid
 from snapshotter.utils.default_logger import logger
 from snapshotter.utils.file_utils import read_json_file
+from snapshotter.utils.models.data_models import EpochProcessingIssue
+from snapshotter.utils.models.data_models import SnapshotterIdentifier
 from snapshotter.utils.models.data_models import TaskStatusRequest
 from snapshotter.utils.rpc import RpcHelper
+from snapshotter.utils.callback_helpers import send_epoch_processing_failure_notification_async
 
 
 # setup logging
 rest_logger = logger.bind(module='CoreAPI')
 
+# Disables unnecessary logging for httpx requests
+rest_logger.disable('httpcore._trace')
+rest_logger.disable('httpx._client')
 
 protocol_state_contract_abi = read_json_file(
     settings.protocol_state.abi,
@@ -59,6 +72,18 @@ async def startup_boilerplate():
         abi=protocol_state_contract_abi,
     )
 
+    app.state.async_client = AsyncClient(
+        timeout=Timeout(timeout=5.0),
+        follow_redirects=False,
+        transport=AsyncHTTPTransport(
+            limits=Limits(
+                max_connections=200,
+                max_keepalive_connections=50,
+                keepalive_expiry=None,
+            ),
+        ),
+    )
+
     if not settings.ipfs.url:
         rest_logger.warning('IPFS url not set, /data API endpoint will be unusable!')
     else:
@@ -66,6 +91,7 @@ async def startup_boilerplate():
         await app.state.ipfs_singleton.init_sessions()
         app.state.ipfs_reader_client = app.state.ipfs_singleton._ipfs_read_client
     app.state.epoch_size = 0
+    app.state.consecutive_failures = 0
 
 
 # Health check endpoint
@@ -84,6 +110,65 @@ async def health_check(
     Returns:
     dict: A dictionary containing the status of the service.
     """
+    if settings.reporting.service_url:
+
+        instance_id = Web3.to_checksum_address(settings.instance_id)
+        service_resp = await request.app.state.async_client.get(
+            url=urljoin(
+                settings.reporting.service_url,
+                f'/lastPing/{instance_id}/{settings.slot_id}',
+            ),
+        )
+
+        # not returning 500 to avoid unhealthy flag if reporting service is down
+        if service_resp.status_code != 200:
+            return {f'status': 'reporting service not responding'}
+        else:
+            last_ping = service_resp.json().get('lastPing', 0)
+
+        if int(time.time()) - last_ping >= 600:
+            if settings.reporting.telegram_url and settings.reporting.telegram_chat_id:
+                notification_message = EpochProcessingIssue(
+                    instanceID=instance_id,
+                    issueType='SNAPSHOTTER_HEALTH_PING_FAILED',
+                    timeOfReporting=str(int(time.time())),
+                    extra=json.dumps({'issueDetails': 'Last ping > 10 minutes ago'})
+                )
+                await send_epoch_processing_failure_notification_async(
+                    client=app.state.async_client, 
+                    message=notification_message
+                )
+            response.status_code = 500
+            return {f'status': 'Last ping was more than 10 minutes ago'}
+        
+        
+        payload = SnapshotterIdentifier(
+            instanceId=Web3.to_checksum_address(settings.instance_id),
+        )
+        issue_resp = await request.app.state.async_client.post(
+            url=urljoin(
+                settings.reporting.service_url,
+                f'/metrics/issues/{600}',
+            ),
+            json=payload.dict()
+        )
+        if issue_resp.status_code != 200:
+            return {f'status': 'reporting service not responding'}
+        else:
+            # check for new failures
+            snapshotter_failed = len(issue_resp.json()) > app.state.consecutive_failures
+
+        # not notifying with telegram, notifications are sent when issues are reported
+        if snapshotter_failed:
+            app.state.consecutive_failures += (len(issue_resp.json()) - app.state.consecutive_failures)
+        # reset consecutive failures if no issues are found in the last 10 min
+        elif len(issue_resp.json()) == 0:
+            app.state.consecutive_failures = 0
+
+        if app.state.consecutive_failures >= 3:
+            response.status_code = 500
+            return {'status': 'Snapshotter has failed 3 or more times in the last 10 minutes'}
+
     return {'status': 'OK'}
 
 

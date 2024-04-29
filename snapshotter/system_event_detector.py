@@ -1,27 +1,33 @@
 import asyncio
+import json
 import multiprocessing
 import resource
 import signal
+import sys
 import time
 from signal import SIGINT
 from signal import SIGQUIT
 from signal import SIGTERM
+from urllib.parse import urljoin
+
 import httpx
 from eth_utils.address import to_checksum_address
 from web3 import Web3
-import sys
+
 from snapshotter.processor_distributor import ProcessorDistributor
 from snapshotter.settings.config import settings
+from snapshotter.utils.callback_helpers import send_epoch_processing_failure_notification_sync
 from snapshotter.utils.default_logger import logger
 from snapshotter.utils.exceptions import GenericExitOnSignal
 from snapshotter.utils.file_utils import read_json_file
 from snapshotter.utils.models.data_models import DailyTaskCompletedEvent
 from snapshotter.utils.models.data_models import DayStartedEvent
+from snapshotter.utils.models.data_models import EpochProcessingIssue
 from snapshotter.utils.models.data_models import EpochReleasedEvent
+from snapshotter.utils.models.data_models import SnapshotterPing
+from snapshotter.utils.models.data_models import SnapshotterReportState
 from snapshotter.utils.rpc import get_event_sig_and_abi
 from snapshotter.utils.rpc import RpcHelper
-from urllib.parse import urljoin
-from snapshotter.utils.models.data_models import SnapshotterPing
 
 
 class EventDetectorProcess(multiprocessing.Process):
@@ -76,6 +82,7 @@ class EventDetectorProcess(multiprocessing.Process):
             abi=self.contract_abi,
         )
         self._last_reporting_service_ping = 0
+        self._last_reporting_message_sent = 0
 
         # event EpochReleased(uint256 indexed epochId, uint256 begin, uint256 end, uint256 timestamp);
         # event DayStartedEvent(uint256 dayId, uint256 timestamp);
@@ -123,13 +130,13 @@ class EventDetectorProcess(multiprocessing.Process):
                 'Processing dummy event: {}', event,
             )
             await self.processor_distributor.process_event(
-                "EpochReleased", event,
+                'EpochReleased', event,
             )
         except Exception as e:
             self._logger.error(
                 '❌ Dummy Event processing failed! Error: {}', e,
             )
-            self._logger.info("Please check your config and if issue persists please reach out to the team!")
+            self._logger.info('Please check your config and if issue persists please reach out to the team!')
             sys.exit(1)
 
     async def get_events(self, from_block: int, to_block: int):
@@ -247,6 +254,19 @@ class EventDetectorProcess(multiprocessing.Process):
                     settings.rpc.polling_interval,
                 )
 
+                if int(time.time()) - self._last_reporting_message_sent >= 600:
+                    self._last_reporting_message_sent = int(time.time())
+                    notification_message = EpochProcessingIssue(
+                        instanceID=settings.instance_id,
+                        issueType=SnapshotterReportState.UNHEALTHY_EPOCH_PROCESSING.value,
+                        timeOfReporting=str(time.time()),
+                        extra=json.dumps({'issueDetails': f'Error : {e}'}),
+                    )
+                    send_epoch_processing_failure_notification_sync(
+                        client=self._httpx_client,
+                        message=notification_message,
+                    )
+
                 await asyncio.sleep(settings.rpc.polling_interval)
                 continue
 
@@ -282,6 +302,20 @@ class EventDetectorProcess(multiprocessing.Process):
                     e,
                     settings.rpc.polling_interval,
                 )
+
+                if int(time.time()) - self._last_reporting_message_sent >= 600:
+                    self._last_reporting_message_sent = int(time.time())
+                    notification_message = EpochProcessingIssue(
+                        instanceID=settings.instance_id,
+                        issueType=SnapshotterReportState.UNHEALTHY_EPOCH_PROCESSING.value,
+                        timeOfReporting=str(time.time()),
+                        extra=json.dumps({'issueDetails': f'Error : {e}'}),
+                    )
+                    send_epoch_processing_failure_notification_sync(
+                        client=self._httpx_client,
+                        message=notification_message,
+                    )
+
                 await asyncio.sleep(settings.rpc.polling_interval)
                 continue
 

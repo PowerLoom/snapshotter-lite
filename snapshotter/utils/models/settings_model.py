@@ -47,6 +47,9 @@ class Timeouts(BaseModel):
 class ReportingConfig(BaseModel):
     slack_url: str
     service_url: str
+    telegram_url: str
+    telegram_chat_id: str
+    failure_report_frequency: int
 
 
 class Logs(BaseModel):
