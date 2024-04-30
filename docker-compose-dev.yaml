@@ -19,7 +19,7 @@ services:
       - REDIS_HOST=${REDIS_HOST:-redis}
       - REDIS_PORT=${REDIS_PORT:-6379}
       - SEQUENCER_ID=$SEQUENCER_ID
-      - CLIENT_RENDEZVOUS_POINT=$CLIENT_RENDEZVOUS_POINT
+      - RENDEZVOUS_POINT=$RENDEZVOUS_POINT
       - BLOCK_TIME=$BLOCK_TIME
     command:
       bash -c  "sh server_autofill.sh && sh init_processes.sh"
