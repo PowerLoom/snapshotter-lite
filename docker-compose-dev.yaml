@@ -7,6 +7,8 @@ services:
       - 50051
     ports:
       - 50051:50051
+    volumes:
+      - ./shared-volume:/keys
     environment:
       - SIGNER_ACCOUNT_ADDRESS=$SIGNER_ACCOUNT_ADDRESS
       - SIGNER_ACCOUNT_PRIVATE_KEY=$SIGNER_ACCOUNT_PRIVATE_KEY
@@ -21,6 +23,7 @@ services:
       - SEQUENCER_ID=$SEQUENCER_ID
       - RELAYER_RENDEZVOUS_POINT=$RELAYER_RENDEZVOUS_POINT
       - CLIENT_RENDEZVOUS_POINT=$CLIENT_RENDEZVOUS_POINT
+      - RELAYER_PRIVATE_KEY=$RELAYER_PRIVATE_KEY
       - BLOCK_TIME=$BLOCK_TIME
     command:
       bash -c  "sh server_autofill.sh && sh init_processes.sh"
