@@ -5,10 +5,8 @@ services:
     image: proto-snapshot-server
     expose:
       - 50051
-      - 5002
     ports:
       - 50051:50051
-      - 5002:5002
     volumes:
       - ./shared-volume:/keys
     environment:
@@ -27,7 +25,6 @@ services:
       - CLIENT_RENDEZVOUS_POINT=$CLIENT_RENDEZVOUS_POINT
       - RELAYER_PRIVATE_KEY=$RELAYER_PRIVATE_KEY
       - BLOCK_TIME=$BLOCK_TIME
-      - DASHBOARD_ENABLED=$DASHBOARD_ENABLED
     command:
       bash -c  "sh server_autofill.sh && sh init_processes.sh"
 
