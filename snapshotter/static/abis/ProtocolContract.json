@@ -945,6 +945,19 @@
 	},
 	{
 		"inputs": [],
+		"name": "currentBatchId",
+		"outputs": [
+			{
+				"internalType": "uint256",
+				"name": "",
+				"type": "uint256"
+			}
+		],
+		"stateMutability": "view",
+		"type": "function"
+	},
+	{
+		"inputs": [],
 		"name": "currentEpoch",
 		"outputs": [
 			{
@@ -1414,6 +1427,30 @@
 		"inputs": [
 			{
 				"internalType": "string",
+				"name": "projectId",
+				"type": "string"
+			},
+			{
+				"internalType": "uint256",
+				"name": "epochId",
+				"type": "uint256"
+			}
+		],
+		"name": "maxSnapshotsCid",
+		"outputs": [
+			{
+				"internalType": "string",
+				"name": "",
+				"type": "string"
+			}
+		],
+		"stateMutability": "view",
+		"type": "function"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "string",
 				"name": "",
 				"type": "string"
 			},
@@ -1423,7 +1460,7 @@
 				"type": "uint256"
 			}
 		],
-		"name": "maxSnapshotsCid",
+		"name": "maxSnapshotsCidMap",
 		"outputs": [
 			{
 				"internalType": "string",
