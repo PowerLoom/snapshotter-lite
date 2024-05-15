@@ -5,7 +5,7 @@ echo "setting up codebase...";
 rm -rf submission-sequencer;
 git clone https://github.com/PowerLoom/submission-sequencer.git;
 cd ./submission-sequencer;
-git checkout feat/no_dashboard;
+git checkout relayer_secure;
 cd ..;
 
 echo "bootstrapping complete!";
