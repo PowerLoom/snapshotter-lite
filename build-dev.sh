@@ -91,6 +91,25 @@ if [ "$POWERLOOM_REPORTING_URL" ]; then
     echo "Found SLACK_REPORTING_URL ${POWERLOOM_REPORTING_URL}";
 fi
 
+if [ "$DASHBOARD_ENABLED" == "true" ]; then
+    echo "Dashboards are enabled."
+
+    # Determine the OS type
+    OS_TYPE=$(uname -s) # This command returns Linux, Darwin, etc.
+
+    cd ./dashboards || exit
+
+    # If the OS is Linux, use a specific Docker Compose file
+    if [ "$OS_TYPE" = "Linux" ]; then
+        docker compose -f docker-compose.base.yml -f docker-compose-linux.yml up &
+    else
+        # If the OS is not Linux, use a specific Docker Compose file
+        docker compose -f docker-compose.base.yml up &
+    fi
+
+    cd ../
+fi
+
 # setting up git submodules
 git submodule update --init --recursive
 
