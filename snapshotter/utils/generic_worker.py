@@ -270,7 +270,9 @@ class GenericAsyncWorker:
             self._cancel_task.cancel()
             self.logger.debug("Cancellation task reset.")
 
-        self._cancel_task = asyncio.get_event_loop().call_later(5, self._cancel_stream)
+        def cancel_task():
+            asyncio.create_task(self._cancel_stream())
+        self._cancel_task = asyncio.get_event_loop().call_later(5, cancel_task)
 
     async def _cancel_stream(self):
         if self._stream is not None:
