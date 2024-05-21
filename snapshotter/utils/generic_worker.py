@@ -234,23 +234,11 @@ class GenericAsyncWorker:
         snapshot_bytes = snapshot_json.encode('utf-8')
         snapshot_cid = cid_sha256_hash(snapshot_bytes)
 
-        request_, signature, _ = await self.generate_signature(snapshot_cid, epoch.epochId, f"{project_id}|{settings.node_version}")
+        # request_, signature, _ = await self.generate_signature(snapshot_cid, epoch.epochId, f"{project_id}|{settings.node_version}")
         # submit to relayer
         try:
-            response = await self._client.post(
-                url=urljoin(settings.simulation_submission_url, settings.relayer.endpoint),
-                json={
-                    'slotId': settings.slot_id,
-                    'request': request_,
-                    'signature': '0x' + str(signature.hex()),
-                    'projectId': f"{project_id}|{settings.node_version}",
-                    'epochId': epoch.epochId,
-                    'snapshotCid': snapshot_cid,
-                    'contractAddress': self.protocol_state_contract_address,
-                },
-            )
-
-            if response.status_code == 200:
+            response = await self._send_submission_to_collector(snapshot_cid=snapshot_cid, epoch_id=epoch.epochId, project_id=project_id)
+            if response['status_code'] == 200:
                 self.logger.info(
                     '✅ Event processed successfully: {}!', epoch,
                 )
@@ -268,34 +256,74 @@ class GenericAsyncWorker:
             self.logger.info("Please check your config and if issue persists please reach out to the team!")
             sys.exit(1)
     
+    async def _ensure_stream_open(self):
+        try:
+            if self._stream is None:
+                async with self._grpc_stub.SubmitSnapshot.open() as stream:
+                    self._stream = stream
+                    self.logger.debug("Stream opened.")
+        except Exception as e:
+            self.logger.error(f'Unable to open stream: {e}')
+            
+    def _reschedule_cancellation(self):
+        if self._cancel_task is not None:
+            self._cancel_task.cancel()
+            self.logger.debug("Cancellation task reset.")
+
+        self._cancel_task = asyncio.get_event_loop().call_later(5, self._cancel_stream)
+
+    async def _cancel_stream(self):
+        if self._stream is not None:
+            await self._stream.cancel()
+            self.logger.debug("Stream cancelled due to inactivity.")
+            self._stream = None
+            self._cancel_task = None
+
     async def _send_submission_to_collector(self, snapshot_cid, epoch_id, project_id):
         self.logger.debug(
                 f'Sending submission to collector...',
             )
         request_, signature, current_block_hash = await self.generate_signature(snapshot_cid, epoch_id, project_id)
+        
+        request_msg = dict(
+            slotId=request_['slotId'],
+            deadline=request_['deadline'],
+            snapshotCid=request_['snapshotCid'],
+            epochId=request_['epochId'],
+            projectId=request_['projectId'],
+        )
+        self.logger.debug(
+            'Snapshot submission creation with request: {}', request_msg
+        )
+            
+        msg = SnapshotSubmission(request=request_msg, signature=signature.hex(), header=current_block_hash)
+        self.logger.debug(
+            'Snapshot submission created: {}', msg
+        )
+
+        try:
+            await self.send_message(msg)
+            self.logger.debug('Sent message: ', msg)
+            self._reschedule_cancellation()
+            return {'status_code': 200}
+        except Exception as e:
+            self.logger.error(f'Failed to send message: {e}')
+            return {'status_code': 400} 
     
-        async with self._grpc_stub.SubmitSnapshot.open() as stream:
-            request_msg = dict(
-                slotId=request_['slotId'],
-                deadline=request_['deadline'],
-                snapshotCid=request_['snapshotCid'],
-                epochId=request_['epochId'],
-                projectId=request_['projectId'],
-            )
-            self.logger.debug(
-                'Snapshot submission creation with request: {}', request_msg
-            )
-            # msg = SnapshotSubmission()
-            # msg.request = request_msg
-            # msg.signature = signature.hex()
-            # msg.header = current_block_hash
-            msg = SnapshotSubmission(request=request_msg, signature=signature.hex(), header=current_block_hash)
-            self.logger.debug(
-                'Snapshot submission created: {}', msg
-            )
-            await stream.send_message(msg)
-            response = await stream.recv_message()
-            self.logger.info('Received response from collector: {}', response)
+    @retry(
+        stop=stop_after_attempt(3),
+    )
+    async def send_message(self, msg):
+        try:
+            await self._ensure_stream_open()
+            await self._stream.send_message(msg)
+            self.logger.debug(f'Sent message: {msg}')
+            self._reschedule_cancellation()
+            return {'status_code': 200}
+        except Exception as e:
+            self.logger.error(f'Failed to send message: {e}')
+            self._stream = None
+            raise  # Reraise the exception to trigger the retry logic
 
     async def _commit_payload(
             self,
@@ -510,6 +538,8 @@ class GenericAsyncWorker:
             ssl=False,
         )
         self._grpc_stub = SubmissionStub(self._grpc_channel)
+        self._stream = None
+        self._cancel_task = None
 
     async def _init_protocol_meta(self):
         # TODO: combine these into a single call
