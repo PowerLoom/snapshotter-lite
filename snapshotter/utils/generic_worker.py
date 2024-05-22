@@ -307,7 +307,13 @@ class GenericAsyncWorker:
             await self.send_message(msg)
             self.logger.debug('Sent message: ', msg)
             self._reschedule_cancellation()
-            return {'status_code': 200}
+            response = await self._stream.recv_message()
+            if 'Success' in response.message:
+                self.logger.info(f'Received success from collector: {response}')
+                return {'status_code': 200}
+            else:
+                self.logger.error(f'Failed to send message: {e}')
+            return {'status_code': 400} 
         except Exception as e:
             self.logger.error(f'Failed to send message: {e}')
             return {'status_code': 400} 
@@ -581,3 +587,4 @@ class GenericAsyncWorker:
             await self._init_protocol_meta()
             await self._init_grpc()
         self.initialized = True
+
