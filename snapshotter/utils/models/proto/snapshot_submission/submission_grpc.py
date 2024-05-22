@@ -22,7 +22,7 @@ class SubmissionBase(abc.ABC):
         return {
             '/submission.Submission/SubmitSnapshot': grpclib.const.Handler(
                 self.SubmitSnapshot,
-                grpclib.const.Cardinality.STREAM_UNARY,
+                grpclib.const.Cardinality.STREAM_STREAM,
                 snapshotter.utils.models.proto.snapshot_submission.submission_pb2.SnapshotSubmission,
                 snapshotter.utils.models.proto.snapshot_submission.submission_pb2.SubmissionResponse,
             ),
@@ -32,7 +32,7 @@ class SubmissionBase(abc.ABC):
 class SubmissionStub:
 
     def __init__(self, channel: grpclib.client.Channel) -> None:
-        self.SubmitSnapshot = grpclib.client.StreamUnaryMethod(
+        self.SubmitSnapshot = grpclib.client.StreamStreamMethod(
             channel,
             '/submission.Submission/SubmitSnapshot',
             snapshotter.utils.models.proto.snapshot_submission.submission_pb2.SnapshotSubmission,
