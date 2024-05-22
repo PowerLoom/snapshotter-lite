@@ -307,7 +307,12 @@ class GenericAsyncWorker:
             await self.send_message(msg)
             self.logger.debug('Sent message: ', msg)
             self._reschedule_cancellation()
-            return {'status_code': 200}
+            response = await self._stream.recv_msg()
+            if 'Success' in response:
+                return {'status_code': 200}
+            else:
+                self.logger.error(f'Failed to send message: {e}')
+            return {'status_code': 400} 
         except Exception as e:
             self.logger.error(f'Failed to send message: {e}')
             return {'status_code': 400} 
