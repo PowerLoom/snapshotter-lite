@@ -237,7 +237,7 @@ class GenericAsyncWorker:
         # request_, signature, _ = await self.generate_signature(snapshot_cid, epoch.epochId, f"{project_id}|{settings.node_version}")
         # submit to relayer
         try:
-            response = await self._send_submission_to_collector(snapshot_cid=snapshot_cid, epoch_id=epoch.epochId, project_id=project_id)
+            response = await self._send_submission_to_collector(snapshot_cid=snapshot_cid, epoch_id=epoch.epochId, project_id=f"{project_id}|{settings.node_version}")
             if response['status_code'] == 200:
                 self.logger.info(
                     '✅ Event processed successfully: {}!', epoch,
