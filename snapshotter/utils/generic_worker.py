@@ -1,6 +1,8 @@
 import asyncio
 import json
+import sys
 import time
+from contextlib import asynccontextmanager
 from typing import Dict
 from typing import Union
 from urllib.parse import urljoin
@@ -8,13 +10,13 @@ from urllib.parse import urljoin
 import httpx
 import sha3
 import tenacity
-from grpclib.client import Channel
 from coincurve import PrivateKey
 from eip712_structs import EIP712Struct
 from eip712_structs import make_domain
 from eip712_structs import String
 from eip712_structs import Uint
 from eth_utils import big_endian_to_int
+from grpclib.client import Channel
 from httpx import AsyncClient
 from httpx import AsyncHTTPTransport
 from httpx import Limits
@@ -34,15 +36,15 @@ from snapshotter.utils.callback_helpers import misc_notification_callback_result
 from snapshotter.utils.callback_helpers import send_failure_notifications_async
 from snapshotter.utils.default_logger import logger
 from snapshotter.utils.file_utils import read_json_file
-from snapshotter.utils.models.proto.snapshot_submission.submission_pb2 import Request, SnapshotSubmission
-from snapshotter.utils.models.proto.snapshot_submission.submission_grpc import SubmissionStub
 from snapshotter.utils.models.data_models import SnapshotterIssue
 from snapshotter.utils.models.data_models import SnapshotterReportState
 from snapshotter.utils.models.message_models import SnapshotProcessMessage
 from snapshotter.utils.models.message_models import SnapshotSubmittedMessage
 from snapshotter.utils.models.message_models import SnapshotSubmittedMessageLite
+from snapshotter.utils.models.proto.snapshot_submission.submission_grpc import SubmissionStub
+from snapshotter.utils.models.proto.snapshot_submission.submission_pb2 import Request
+from snapshotter.utils.models.proto.snapshot_submission.submission_pb2 import SnapshotSubmission
 from snapshotter.utils.rpc import RpcHelper
-import sys
 
 
 class EIPRequest(EIP712Struct):
@@ -125,7 +127,7 @@ class GenericAsyncWorker:
         self.protocol_state_contract_address = settings.protocol_state.address
         self.initialized = False
         self.logger = logger.bind(module='GenericAsyncWorker')
-    
+
     def _notification_callback_result_handler(self, fut: asyncio.Future):
         """
         Handles the result of a callback or notification.
@@ -141,7 +143,7 @@ class GenericAsyncWorker:
         except Exception as e:
             if settings.logs.trace_enabled:
                 logger.opt(exception=True).error(
-                    'Exception while sending callback or notification: {}', traceback.format_exc(),
+                    'Exception while sending callback or notification, Error: {}', e,
                 )
             else:
                 logger.error('Exception while sending callback or notification: {}', e)
@@ -237,56 +239,38 @@ class GenericAsyncWorker:
         # request_, signature, _ = await self.generate_signature(snapshot_cid, epoch.epochId, f"{project_id}|{settings.node_version}")
         # submit to relayer
         try:
-            response = await self._send_submission_to_collector(snapshot_cid=snapshot_cid, epoch_id=epoch.epochId, project_id=f"{project_id}|{settings.node_version}")
-            if response['status_code'] == 200:
-                self.logger.info(
-                    '✅ Event processed successfully: {}!', epoch,
-                )
-                self.logger.info("Node is good to go, you can keep the node running and it will start processing events!")
-            else:
-                self.logger.error(
-                    '❌ Event processing failed: {}', epoch,
-                )
-                self.logger.info("Please check your config and if issue persists please reach out to the team!")
-                sys.exit(1)
+            await self._send_submission_to_collector(snapshot_cid=snapshot_cid, epoch_id=epoch.epochId, project_id=f'{project_id}|{settings.node_version}')
         except Exception as e:
             self.logger.error(
                 '❌ Event processing failed: {}', epoch,
             )
-            self.logger.info("Please check your config and if issue persists please reach out to the team!")
+            self.logger.info('Please check your config and if issue persists please reach out to the team!')
             sys.exit(1)
-    
-    async def _ensure_stream_open(self):
-        try:
-            if self._stream is None:
-                async with self._grpc_stub.SubmitSnapshot.open() as stream:
-                    self._stream = stream
-                    self.logger.debug("Stream opened.")
-        except Exception as e:
-            self.logger.error(f'Unable to open stream: {e}')
-            
-    def _reschedule_cancellation(self):
-        if self._cancel_task is not None:
-            self._cancel_task.cancel()
-            self.logger.debug("Cancellation task reset.")
 
-        def cancel_task():
-            asyncio.create_task(self._cancel_stream())
-        self._cancel_task = asyncio.get_event_loop().call_later(5, cancel_task)
+    @asynccontextmanager
+    async def open_stream(self):
+        try:
+            async with self._grpc_stub.SubmitSnapshot.open() as stream:
+                self._stream = stream
+                yield self._stream
+        finally:
+            self._stream = None
 
     async def _cancel_stream(self):
         if self._stream is not None:
-            await self._stream.cancel()
-            self.logger.debug("Stream cancelled due to inactivity.")
+            try:
+                await self._stream.cancel()
+            except:
+                self.logger.debug('Error cancelling stream, continuing...')
+            self.logger.debug('Stream cancelled due to inactivity.')
             self._stream = None
-            self._cancel_task = None
 
     async def _send_submission_to_collector(self, snapshot_cid, epoch_id, project_id):
         self.logger.debug(
-                f'Sending submission to collector...',
-            )
+            'Sending submission to collector...',
+        )
         request_, signature, current_block_hash = await self.generate_signature(snapshot_cid, epoch_id, project_id)
-        
+
         request_msg = dict(
             slotId=request_['slotId'],
             deadline=request_['deadline'],
@@ -295,43 +279,62 @@ class GenericAsyncWorker:
             projectId=request_['projectId'],
         )
         self.logger.debug(
-            'Snapshot submission creation with request: {}', request_msg
+            'Snapshot submission creation with request: {}', request_msg,
         )
-            
+
         msg = SnapshotSubmission(request=request_msg, signature=signature.hex(), header=current_block_hash)
         self.logger.debug(
-            'Snapshot submission created: {}', msg
+            'Snapshot submission created: {}', msg,
         )
 
         try:
-            await self.send_message(msg)
-            self.logger.debug('Sent message: ', msg)
-            self._reschedule_cancellation()
-            response = await self._stream.recv_message()
-            if 'Success' in response.message:
-                self.logger.info(f'Received success from collector: {response}')
-                return {'status_code': 200}
+            if request_msg['epochId'] == 0:
+                await self.send_message(msg, simulation=True)
             else:
-                self.logger.error(f'Failed to send message: {e}')
-            return {'status_code': 400} 
+                await self.send_message(msg)
         except Exception as e:
             self.logger.error(f'Failed to send message: {e}')
-            return {'status_code': 400} 
-    
+            if request_msg['epochId'] == 0:
+                self.logger.error(
+                    '❌ Event processing failed: {}', msg,
+                )
+                self.logger.info('Please check your config and if issue persists please reach out to the team!')
+                sys.exit(1)
+
     @retry(
+        wait=wait_random_exponential(multiplier=1, max=10),
         stop=stop_after_attempt(3),
+        retry=Exception,
     )
-    async def send_message(self, msg):
-        try:
-            await self._ensure_stream_open()
-            await self._stream.send_message(msg)
-            self.logger.debug(f'Sent message: {msg}')
-            self._reschedule_cancellation()
-            return {'status_code': 200}
-        except Exception as e:
-            self.logger.error(f'Failed to send message: {e}')
-            self._stream = None
-            raise  # Reraise the exception to trigger the retry logic
+    async def send_message(self, msg, simulation=False):
+
+        if simulation:
+            async with self._grpc_stub.SubmitSnapshotSimulation.open() as stream:
+                try:
+                    await stream.send_message(msg)
+                    self.logger.debug(f'Sent simulation message: {msg}')
+
+                    response = await stream.recv_message()
+                    if 'Success' in response.message:
+                        self.logger.info(
+                            '✅ Event processed successfully: {}!', msg,
+                        )
+                    else:
+                        self.logger.error(
+                            '❌ Event processing failed: {}', msg,
+                        )
+                        self.logger.info('Please check your config and if issue persists please reach out to the team!')
+                        sys.exit(1)
+                except:
+                    raise Exception(f'Failed to send simulation message: {msg}')
+        else:
+            try:
+                async with self.open_stream() as stream:
+                    await stream.send_message(msg)
+                    self.logger.debug(f'Sent message: {msg}')
+                    return {'status_code': 200}
+            except Exception as e:
+                raise Exception(f'Failed to send message: {e}')
 
     async def _commit_payload(
             self,
@@ -440,7 +443,7 @@ class GenericAsyncWorker:
                     'slotId': settings.slot_id,
                     'request': request_,
                     'signature': '0x' + str(signature.hex()),
-                    'projectId': f"{project_id}",
+                    'projectId': f'{project_id}',
                     'epochId': epoch_id,
                     'snapshotCid': snapshot_cid,
                     'contractAddress': self.protocol_state_contract_address,
@@ -506,7 +509,10 @@ class GenericAsyncWorker:
         s = big_endian_to_int(signature[32:64])
 
         final_sig = r.to_bytes(32, 'big') + s.to_bytes(32, 'big') + v.to_bytes(1, 'big')
-        request_ = {'slotId': settings.slot_id, 'deadline': deadline, 'snapshotCid': snapshot_cid, 'epochId': epoch_id, 'projectId': project_id}
+        request_ = {
+            'slotId': settings.slot_id, 'deadline': deadline,
+            'snapshotCid': snapshot_cid, 'epochId': epoch_id, 'projectId': project_id,
+        }
         return request_, final_sig, current_block_hash
 
     async def _init_httpx_client(self):
@@ -538,7 +544,7 @@ class GenericAsyncWorker:
             transport=self._web3_storage_upload_transport,
             headers={'Authorization': 'Bearer ' + settings.web3storage.api_token},
         )
-    
+
     async def _init_grpc(self):
         self._grpc_channel = Channel(
             host='snapshot-server',
@@ -587,4 +593,3 @@ class GenericAsyncWorker:
             await self._init_protocol_meta()
             await self._init_grpc()
         self.initialized = True
-
