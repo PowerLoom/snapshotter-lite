@@ -293,18 +293,15 @@ class GenericAsyncWorker:
             else:
                 await self.send_message(msg)
         except Exception as e:
-            self.logger.error(f'Failed to send message: {e}')
-            if request_msg['epochId'] == 0:
-                self.logger.error(
-                    '❌ Event processing failed: {}', msg,
-                )
-                self.logger.info('Please check your config and if issue persists please reach out to the team!')
-                sys.exit(1)
+            self.logger.opt(
+                exception=True,
+            ).error(f'Failed to send message: {e}')
+            raise Exception(f'Failed to send message: {e}')
 
     @retry(
         wait=wait_random_exponential(multiplier=1, max=10),
         stop=stop_after_attempt(3),
-        retry=Exception,
+        retry=retry_if_exception_type(Exception),
     )
     async def send_message(self, msg, simulation=False):
 
@@ -315,16 +312,14 @@ class GenericAsyncWorker:
                     self.logger.debug(f'Sent simulation message: {msg}')
 
                     response = await stream.recv_message()
+                    await stream.end()
+
                     if 'Success' in response.message:
                         self.logger.info(
                             '✅ Event processed successfully: {}!', msg,
                         )
                     else:
-                        self.logger.error(
-                            '❌ Event processing failed: {}', msg,
-                        )
-                        self.logger.info('Please check your config and if issue persists please reach out to the team!')
-                        sys.exit(1)
+                        raise Exception(f'Failed to send simulation message, got response: {response.message}')
                 except:
                     raise Exception(f'Failed to send simulation message: {msg}')
         else:

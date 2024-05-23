@@ -1,5 +1,6 @@
 import importlib
 import json
+import sys
 import time
 from typing import Optional
 
@@ -14,7 +15,6 @@ from snapshotter.utils.generic_worker import GenericAsyncWorker
 from snapshotter.utils.models.data_models import SnapshotterIssue
 from snapshotter.utils.models.data_models import SnapshotterReportState
 from snapshotter.utils.models.message_models import SnapshotProcessMessage
-import sys
 
 
 class SnapshotAsyncWorker(GenericAsyncWorker):
@@ -109,14 +109,6 @@ class SnapshotAsyncWorker(GenericAsyncWorker):
             await send_failure_notifications_async(
                 client=self._client, message=notification_message,
             )
-
-            if msg_obj.epochId == 0:
-                self.logger.error(
-                    '❌ Event processing failed: {}', msg_obj,
-                )
-                self.logger.info("Please check your config and if issue persists please reach out to the team!")
-                sys.exit(1)
-
         else:
 
             if not snapshots:
